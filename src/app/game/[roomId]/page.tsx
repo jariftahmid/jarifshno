@@ -5,9 +5,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowLeft, Info } from 'lucide-react';
+import { Sparkles, ArrowLeft, Info, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { UnoCard, CardColor, GameState, createDeck, canPlayCard, Player } from '@/lib/uno-engine';
+import { UnoCard, CardColor, GameState, canPlayCard, Player } from '@/lib/uno-engine';
 import UnoCardUI from '@/components/uno/UnoCardUI';
 import ChatSidebar from '@/components/uno/ChatSidebar';
 import WildColorPicker from '@/components/uno/WildColorPicker';
@@ -16,48 +16,55 @@ import { getStrategicHint, StrategicHintOutput } from '@/ai/flows/ai-strategic-h
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { socket } from '@/lib/socket';
 
 export default function GameArena() {
   const params = useParams();
   const roomId = params?.roomId as string;
   const router = useRouter();
   
-  // Game State
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingCard, setPendingCard] = useState<UnoCard | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiHint, setAiHint] = useState<StrategicHintOutput | null>(null);
+  const [playerId, setPlayerId] = useState<string>('');
 
-  // Initialize Game
   useEffect(() => {
     if (!roomId) return;
-    const deck = createDeck();
-    const players: Player[] = [
-      { id: '1', name: 'You', hand: deck.splice(0, 7), isLocal: true },
-      { id: '2', name: 'Satoshi', hand: deck.splice(0, 7), isLocal: false },
-      { id: '3', name: 'Luna', hand: deck.splice(0, 7), isLocal: false },
-    ];
+
+    // Connect to socket
+    socket.connect();
     
-    const initialTop = deck.pop()!;
-    
-    setGameState({
-      roomId: roomId,
-      players,
-      discardPile: [initialTop],
-      drawPile: deck,
-      currentPlayerIndex: 0,
-      currentColor: initialTop.color === 'wild' ? 'red' : initialTop.color,
-      direction: 1,
-      status: 'playing',
+    // Generate a simple ID for this session
+    const myId = Math.random().toString(36).substring(7);
+    setPlayerId(myId);
+
+    // Join room
+    socket.emit('join_room', { roomId, playerId: myId, name: localStorage.getItem('uno_username') || 'Player' });
+
+    // Listen for state updates
+    socket.on('game_state_update', (newState: GameState) => {
+      setGameState(newState);
+      setAiHint(null);
     });
+
+    socket.on('error', (msg: string) => {
+      toast({ title: "Error", variant: "destructive", description: msg });
+    });
+
+    return () => {
+      socket.emit('leave_room', { roomId });
+      socket.disconnect();
+    };
   }, [roomId]);
 
-  const currentPlayer = gameState?.players[gameState.currentPlayerIndex];
+  const localPlayer = gameState?.players.find(p => p.id === playerId);
+  const isMyTurn = gameState && gameState.players[gameState.currentPlayerIndex]?.id === playerId;
   const topCard = gameState?.discardPile[gameState.discardPile.length - 1];
 
   const handlePlayCard = (card: UnoCard) => {
-    if (!gameState || !topCard || gameState.currentPlayerIndex !== 0) return;
+    if (!gameState || !topCard || !isMyTurn) return;
 
     if (!canPlayCard(card, topCard, gameState.currentColor)) {
       toast({ title: "Invalid move!", description: "Card must match color or value." });
@@ -70,71 +77,25 @@ export default function GameArena() {
       return;
     }
 
-    executePlay(card, card.color);
-  };
-
-  const executePlay = (card: UnoCard, chosenColor: CardColor) => {
-    if (!gameState) return;
-
-    const newPlayers = [...gameState.players];
-    const playerHand = newPlayers[gameState.currentPlayerIndex].hand;
-    const cardIndex = playerHand.findIndex(c => c.id === card.id);
-    playerHand.splice(cardIndex, 1);
-
-    // Handle Action Cards
-    let nextIndex = (gameState.currentPlayerIndex + gameState.direction + gameState.players.length) % gameState.players.length;
-    let newDirection = gameState.direction;
-
-    if (card.value === 'reverse') {
-      newDirection = (gameState.direction * -1) as 1 | -1;
-      nextIndex = (gameState.currentPlayerIndex + newDirection + gameState.players.length) % gameState.players.length;
-    } else if (card.value === 'skip') {
-      nextIndex = (nextIndex + newDirection + gameState.players.length) % gameState.players.length;
-    }
-
-    setGameState({
-      ...gameState,
-      players: newPlayers,
-      discardPile: [...gameState.discardPile, card],
-      currentPlayerIndex: nextIndex,
-      currentColor: chosenColor,
-      direction: newDirection,
-    });
-
-    setAiHint(null);
+    socket.emit('play_card', { roomId, card, chosenColor: card.color });
   };
 
   const handleDrawCard = () => {
-    if (!gameState || gameState.currentPlayerIndex !== 0) return;
-    
-    const newDrawPile = [...gameState.drawPile];
-    const newCard = newDrawPile.pop();
-    if (!newCard) return;
-
-    const newPlayers = [...gameState.players];
-    newPlayers[0].hand.push(newCard);
-
-    setGameState({
-      ...gameState,
-      drawPile: newDrawPile,
-      players: newPlayers,
-      currentPlayerIndex: (gameState.currentPlayerIndex + 1) % gameState.players.length,
-    });
-    
-    setAiHint(null);
+    if (!gameState || !isMyTurn) return;
+    socket.emit('draw_card', { roomId });
   };
 
   const getAiStrategicHint = async () => {
-    if (!gameState || !currentPlayer || !topCard) return;
+    if (!gameState || !localPlayer || !topCard) return;
     
     setIsAiLoading(true);
     try {
       const hint = await getStrategicHint({
-        playerHand: currentPlayer.hand.map(c => ({ color: c.color, value: c.value })),
+        playerHand: localPlayer.hand.map(c => ({ color: c.color, value: c.value })),
         discardPileTopCard: { color: topCard.color, value: topCard.value },
         currentColor: gameState.currentColor,
         opponentPlayers: gameState.players
-          .filter(p => !p.isLocal)
+          .filter(p => p.id !== playerId)
           .map(p => ({ name: p.name, cardsLeft: p.hand.length }))
       });
       setAiHint(hint);
@@ -145,7 +106,14 @@ export default function GameArena() {
     }
   };
 
-  if (!gameState) return null;
+  if (!gameState) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-white/60 font-headline uppercase tracking-widest">Entering Arena...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen mesh-gradient relative overflow-hidden font-body">
@@ -163,7 +131,7 @@ export default function GameArena() {
 
           <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
              <div className={cn(
-               "w-12 h-12 rounded-full blur-2xl absolute",
+               "w-12 h-12 rounded-full blur-2xl absolute transition-all duration-500",
                gameState.currentColor === 'red' && "bg-red-500",
                gameState.currentColor === 'blue' && "bg-blue-500",
                gameState.currentColor === 'green' && "bg-green-500",
@@ -183,10 +151,10 @@ export default function GameArena() {
 
           <Button 
             onClick={getAiStrategicHint} 
-            disabled={isAiLoading || gameState.currentPlayerIndex !== 0}
+            disabled={isAiLoading || !isMyTurn}
             className="bg-accent/20 hover:bg-accent/40 text-accent border border-accent/30 rounded-full"
           >
-            {isAiLoading ? "Thinking..." : <><Sparkles className="w-4 h-4 mr-2" /> Get AI Hint</>}
+            {isAiLoading ? "Thinking..." : <><Sparkles className="w-4 h-4 mr-2" /> AI Hint</>}
           </Button>
         </div>
 
@@ -222,15 +190,15 @@ export default function GameArena() {
         </AnimatePresence>
 
         <div className="flex-1 flex flex-col items-center justify-center p-8 relative">
-          <div className="absolute top-12 left-0 right-0 flex justify-around px-20">
-            {gameState.players.filter(p => !p.isLocal).map((p, i) => (
+          <div className="absolute top-12 left-0 right-0 flex justify-center gap-12 px-20">
+            {gameState.players.filter(p => p.id !== playerId).map((p, i) => (
               <div key={p.id} className="flex flex-col items-center gap-2">
                 <div className={cn(
                   "w-16 h-16 rounded-full border-2 border-white/20 p-1 transition-all relative overflow-hidden",
                   gameState.currentPlayerIndex === gameState.players.indexOf(p) && "golden-glow"
                 )}>
                   <Image 
-                    src={PlaceHolderImages.find(img => img.id === `player-${p.id}`)?.imageUrl || PlaceHolderImages[0].imageUrl} 
+                    src={PlaceHolderImages[i % PlaceHolderImages.length].imageUrl} 
                     alt={p.name} 
                     width={100} 
                     height={100} 
@@ -238,12 +206,18 @@ export default function GameArena() {
                     data-ai-hint="avatar person"
                   />
                 </div>
-                <div className="glass px-3 py-1 rounded-full text-center">
-                  <p className="text-xs font-bold text-white">{p.name}</p>
+                <div className="glass px-3 py-1 rounded-full text-center min-w-[80px]">
+                  <p className="text-xs font-bold text-white truncate max-w-[100px]">{p.name}</p>
                   <p className="text-[10px] text-primary uppercase">{p.hand.length} Cards</p>
                 </div>
               </div>
             ))}
+            {gameState.players.length < 2 && (
+              <div className="flex flex-col items-center text-white/30 animate-pulse">
+                <Users className="w-12 h-12 mb-2" />
+                <p className="text-xs font-headline uppercase">Waiting for players...</p>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-12 pile-3d">
@@ -251,7 +225,7 @@ export default function GameArena() {
               whileHover={{ scale: 1.05 }} 
               whileTap={{ scale: 0.95 }}
               onClick={handleDrawCard}
-              className="relative cursor-pointer"
+              className={cn("relative cursor-pointer", !isMyTurn && "cursor-not-allowed opacity-50")}
             >
               <UnoCardUI card={{ id: 'back', color: 'wild', value: 'wild' }} isOpponent />
               <div className="absolute -bottom-6 left-0 right-0 text-center">
@@ -283,19 +257,19 @@ export default function GameArena() {
                transition={{ duration: 2, repeat: Infinity }}
                className="text-lg font-headline font-bold text-white/30 tracking-[0.3em] uppercase"
              >
-               {gameState.currentPlayerIndex === 0 ? "Your Turn" : `${gameState.players[gameState.currentPlayerIndex].name}'s Turn`}
+               {isMyTurn ? "Your Turn" : `${gameState.players[gameState.currentPlayerIndex]?.name}'s Turn`}
              </motion.p>
           </div>
         </div>
 
-        <div className="h-56 glass border-t border-white/10 flex items-center justify-center relative p-4 group">
-          <div className="flex items-center justify-center -space-x-8 max-w-full">
-            {gameState.players[0].hand.map((card, i) => (
+        <div className="h-56 glass border-t border-white/10 flex items-center justify-center relative p-4 group overflow-x-auto">
+          <div className="flex items-center justify-center -space-x-8 max-w-full px-12">
+            {localPlayer?.hand.map((card, i) => (
               <UnoCardUI 
                 key={card.id} 
                 card={card} 
                 index={i} 
-                isPlayable={gameState.currentPlayerIndex === 0 && canPlayCard(card, topCard!, gameState.currentColor)}
+                isPlayable={isMyTurn && canPlayCard(card, topCard!, gameState.currentColor)}
                 onClick={() => handlePlayCard(card)}
               />
             ))}
@@ -303,17 +277,19 @@ export default function GameArena() {
         </div>
 
         <UnoButton 
-          show={gameState.players[0].hand.length === 2 && gameState.currentPlayerIndex === 0} 
-          onClick={() => toast({ title: "UNO!", description: "You safely shouted UNO." })} 
+          show={localPlayer?.hand.length === 2 && isMyTurn} 
+          onClick={() => socket.emit('shout_uno', { roomId })} 
         />
       </div>
 
-      <ChatSidebar />
+      <ChatSidebar roomId={roomId} userName={localPlayer?.name || 'Player'} />
 
       <WildColorPicker 
         isOpen={showColorPicker} 
         onSelect={(color) => {
-          if (pendingCard) executePlay(pendingCard, color);
+          if (pendingCard) {
+            socket.emit('play_card', { roomId, card: pendingCard, chosenColor: color });
+          }
           setShowColorPicker(false);
           setPendingCard(null);
         }} 

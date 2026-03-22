@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -5,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, MessageCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { socket } from '@/lib/socket';
 
 interface Message {
   id: string;
@@ -13,12 +15,27 @@ interface Message {
   timestamp: Date;
 }
 
-const ChatSidebar = () => {
+interface ChatSidebarProps {
+  roomId: string;
+  userName: string;
+}
+
+const ChatSidebar: React.FC<ChatSidebarProps> = ({ roomId, userName }) => {
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', user: 'System', text: 'Welcome to Web Uno Arena!', timestamp: new Date() }
   ]);
   const [inputValue, setInputValue] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    socket.on('receive_message', (msg: Message) => {
+      setMessages(prev => [...prev, { ...msg, timestamp: new Date(msg.timestamp) }]);
+    });
+
+    return () => {
+      socket.off('receive_message');
+    };
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -30,11 +47,12 @@ const ChatSidebar = () => {
     if (!inputValue.trim()) return;
     const newMessage: Message = {
       id: Math.random().toString(),
-      user: 'You',
+      user: userName,
       text: inputValue,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, newMessage]);
+    
+    socket.emit('send_message', { roomId, message: newMessage });
     setInputValue('');
   };
 
@@ -55,7 +73,7 @@ const ChatSidebar = () => {
               className="flex flex-col"
             >
               <div className="flex items-baseline gap-2">
-                <span className={`text-xs font-bold ${msg.user === 'You' ? 'text-primary' : 'text-accent'}`}>
+                <span className={`text-xs font-bold ${msg.user === userName ? 'text-primary' : msg.user === 'System' ? 'text-white/40' : 'text-accent'}`}>
                   {msg.user}
                 </span>
                 <span className="text-[10px] text-white/30">

@@ -1,6 +1,7 @@
+
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Play, Plus, Users, ShieldCheck } from 'lucide-react';
@@ -13,6 +14,18 @@ export default function Lobby() {
   const [roomCode, setRoomCode] = useState('');
   const [step, setStep] = useState<'name' | 'action'>('name');
   const router = useRouter();
+
+  useEffect(() => {
+    const savedName = localStorage.getItem('uno_username');
+    if (savedName) setUsername(savedName);
+  }, []);
+
+  const handleContinue = () => {
+    if (username.trim()) {
+      localStorage.setItem('uno_username', username);
+      setStep('action');
+    }
+  };
 
   const handleCreateRoom = () => {
     const code = generateRoomCode();
@@ -63,12 +76,13 @@ export default function Lobby() {
                   placeholder="Enter your legend name..." 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
                   className="bg-white/5 border-white/10 text-white h-12 rounded-xl focus:ring-primary focus:border-primary"
                 />
               </div>
               <Button 
                 disabled={!username.trim()} 
-                onClick={() => setStep('action')}
+                onClick={handleContinue}
                 className="w-full h-12 bg-primary hover:bg-primary/80 text-white font-headline font-bold rounded-xl transition-all shadow-lg hover:shadow-primary/20"
               >
                 Continue <Play className="ml-2 w-4 h-4 fill-current" />
@@ -110,19 +124,27 @@ export default function Lobby() {
               <div className="pt-4 border-t border-white/10 flex items-center justify-between text-[10px] text-white/30 font-headline uppercase tracking-widest">
                 <div className="flex items-center gap-1">
                   <Users className="w-3 h-3" />
-                  <span>2-4 Players</span>
+                  <span>2-10 Players</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3" />
-                  <span>Ranked Arena</span>
+                  <span>Live Match</span>
                 </div>
               </div>
+
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setStep('name')}
+                className="w-full text-white/40 hover:text-white"
+              >
+                Change Username
+              </Button>
             </motion.div>
           )}
         </div>
       </motion.div>
 
-      {/* Floating decorative cards */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {[...Array(6)].map((_, i) => (
           <motion.div
