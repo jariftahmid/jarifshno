@@ -7,13 +7,18 @@ import { motion } from 'framer-motion';
 import { Play, Plus, Users, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { generateRoomCode } from '@/lib/uno-engine';
+import { generateRoomCode, getInitialGameState } from '@/lib/uno-engine';
+import { useFirestore } from '@/firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { toast } from '@/hooks/use-toast';
 
 export default function Lobby() {
   const [username, setUsername] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [step, setStep] = useState<'name' | 'action'>('name');
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const db = useFirestore();
 
   useEffect(() => {
     const savedName = localStorage.getItem('uno_username');
@@ -27,20 +32,37 @@ export default function Lobby() {
     }
   };
 
-  const handleCreateRoom = () => {
+  const handleCreateRoom = async () => {
+    if (!db) return;
+    setIsLoading(true);
     const code = generateRoomCode();
-    router.push(`/game/${code}`);
-  };
-
-  const handleJoinRoom = () => {
-    if (roomCode.length === 4) {
-      router.push(`/game/${roomCode.toUpperCase()}`);
+    try {
+      const roomRef = doc(db, 'rooms', code);
+      await setDoc(roomRef, getInitialGameState(code));
+      router.push(`/game/${code}`);
+    } catch (e) {
+      toast({ title: "Error", variant: "destructive", description: "Could not create room." });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
+  const handleJoinRoom = async () => {
+    if (!db || roomCode.length !== 4) return;
+    setIsLoading(true);
+    try {
+      const roomRef = doc(db, 'rooms', roomCode.toUpperCase());
+      const snap = await getDoc(roomRef);
+      if (snap.exists()) {
+        router.push(`/game/${roomCode.toUpperCase()}`);
+      } else {
+        toast({ title: "Room Not Found", variant: "destructive", description: "This room code doesn't exist." });
+      }
+    } catch (e) {
+      toast({ title: "Error", variant: "destructive", description: "Could not join room." });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -48,9 +70,8 @@ export default function Lobby() {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
 
       <motion.div 
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
         className="relative z-10 w-full max-w-md p-8 glass rounded-3xl border border-white/20 shadow-2xl"
       >
         <div className="text-center mb-8">
@@ -65,11 +86,7 @@ export default function Lobby() {
 
         <div className="space-y-6">
           {step === 'name' ? (
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }}
-              className="space-y-4"
-            >
+            <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-headline font-bold text-white/70 uppercase tracking-widest ml-1">Username</label>
                 <Input 
@@ -77,31 +94,28 @@ export default function Lobby() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
-                  className="bg-white/5 border-white/10 text-white h-12 rounded-xl focus:ring-primary focus:border-primary"
+                  className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
                 />
               </div>
               <Button 
                 disabled={!username.trim()} 
                 onClick={handleContinue}
-                className="w-full h-12 bg-primary hover:bg-primary/80 text-white font-headline font-bold rounded-xl transition-all shadow-lg hover:shadow-primary/20"
+                className="w-full h-12 bg-primary hover:bg-primary/80 text-white font-headline font-bold rounded-xl"
               >
                 Continue <Play className="ml-2 w-4 h-4 fill-current" />
               </Button>
-            </motion.div>
+            </div>
           ) : (
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }} 
-              animate={{ opacity: 1, x: 0 }}
-              className="space-y-6"
-            >
+            <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <Button 
                   onClick={handleCreateRoom}
+                  disabled={isLoading}
                   variant="outline"
                   className="flex flex-col gap-3 h-32 border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-2xl"
                 >
                   <Plus className="w-8 h-8 text-primary" />
-                  <span className="font-headline font-bold">New Room</span>
+                  <span className="font-headline font-bold">{isLoading ? "Creating..." : "New Room"}</span>
                 </Button>
                 <div className="flex flex-col gap-4">
                   <Input 
@@ -113,25 +127,13 @@ export default function Lobby() {
                   />
                   <Button 
                     onClick={handleJoinRoom}
-                    disabled={roomCode.length !== 4}
+                    disabled={roomCode.length !== 4 || isLoading}
                     className="flex-1 bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 rounded-xl"
                   >
-                    Join Room
+                    {isLoading ? "Joining..." : "Join Room"}
                   </Button>
                 </div>
               </div>
-
-              <div className="pt-4 border-t border-white/10 flex items-center justify-between text-[10px] text-white/30 font-headline uppercase tracking-widest">
-                <div className="flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  <span>2-10 Players</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" />
-                  <span>Live Match</span>
-                </div>
-              </div>
-
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -140,34 +142,10 @@ export default function Lobby() {
               >
                 Change Username
               </Button>
-            </motion.div>
+            </div>
           )}
         </div>
       </motion.div>
-
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {[...Array(6)].map((_, i) => (
-          <motion.div
-            key={i}
-            initial={{ 
-              x: Math.random() * 100 - 50 + (i % 2 ? 100 : 0) + '%', 
-              y: '110%',
-              rotate: Math.random() * 360 
-            }}
-            animate={{ 
-              y: '-20%',
-              rotate: Math.random() * 360 + 360
-            }}
-            transition={{ 
-              duration: 20 + Math.random() * 10, 
-              repeat: Infinity, 
-              delay: Math.random() * 20,
-              ease: "linear"
-            }}
-            className="absolute w-24 h-36 glass rounded-xl border border-white/10 opacity-20"
-          ></motion.div>
-        ))}
-      </div>
     </main>
   );
 }

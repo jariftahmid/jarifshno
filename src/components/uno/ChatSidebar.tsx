@@ -1,19 +1,13 @@
 
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, MessageCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { socket } from '@/lib/socket';
-
-interface Message {
-  id: string;
-  user: string;
-  text: string;
-  timestamp: Date;
-}
+import { useFirestore, useCollection } from '@/firebase';
+import { collection, addDoc, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 
 interface ChatSidebarProps {
   roomId: string;
@@ -21,21 +15,21 @@ interface ChatSidebarProps {
 }
 
 const ChatSidebar: React.FC<ChatSidebarProps> = ({ roomId, userName }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', user: 'System', text: 'Welcome to Web Uno Arena!', timestamp: new Date() }
-  ]);
   const [inputValue, setInputValue] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const db = useFirestore();
 
-  useEffect(() => {
-    socket.on('receive_message', (msg: Message) => {
-      setMessages(prev => [...prev, { ...msg, timestamp: new Date(msg.timestamp) }]);
-    });
+  const messagesRef = useMemo(() => 
+    db ? collection(db, 'rooms', roomId, 'messages') : null, 
+    [db, roomId]
+  );
+  
+  const messagesQuery = useMemo(() => 
+    messagesRef ? query(messagesRef, orderBy('timestamp', 'asc'), limit(50)) : null,
+    [messagesRef]
+  );
 
-    return () => {
-      socket.off('receive_message');
-    };
-  }, []);
+  const { data: messages } = useCollection(messagesQuery);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -43,16 +37,15 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ roomId, userName }) => {
     }
   }, [messages]);
 
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
-    const newMessage: Message = {
-      id: Math.random().toString(),
+  const handleSend = async () => {
+    if (!inputValue.trim() || !messagesRef) return;
+    
+    await addDoc(messagesRef, {
       user: userName,
       text: inputValue,
-      timestamp: new Date()
-    };
+      timestamp: serverTimestamp()
+    });
     
-    socket.emit('send_message', { roomId, message: newMessage });
     setInputValue('');
   };
 
@@ -65,7 +58,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ roomId, userName }) => {
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-white/10">
         <AnimatePresence initial={false}>
-          {messages.map((msg) => (
+          {messages?.map((msg) => (
             <motion.div
               key={msg.id}
               initial={{ opacity: 0, y: 10 }}
@@ -73,11 +66,11 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ roomId, userName }) => {
               className="flex flex-col"
             >
               <div className="flex items-baseline gap-2">
-                <span className={`text-xs font-bold ${msg.user === userName ? 'text-primary' : msg.user === 'System' ? 'text-white/40' : 'text-accent'}`}>
+                <span className={`text-xs font-bold ${msg.user === userName ? 'text-primary' : 'text-accent'}`}>
                   {msg.user}
                 </span>
                 <span className="text-[10px] text-white/30">
-                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {msg.timestamp?.toDate()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Sending...'}
                 </span>
               </div>
               <p className="text-sm text-white/80 bg-white/5 rounded-lg px-3 py-2 mt-1 border border-white/5">

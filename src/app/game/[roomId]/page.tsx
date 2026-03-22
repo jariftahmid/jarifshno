@@ -1,13 +1,13 @@
 
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowLeft, Info, Users } from 'lucide-react';
+import { Sparkles, ArrowLeft, Info, Users, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { UnoCard, CardColor, GameState, canPlayCard, Player } from '@/lib/uno-engine';
+import { UnoCard, CardColor, GameState, canPlayCard, Player, createDeck, shuffle } from '@/lib/uno-engine';
 import UnoCardUI from '@/components/uno/UnoCardUI';
 import ChatSidebar from '@/components/uno/ChatSidebar';
 import WildColorPicker from '@/components/uno/WildColorPicker';
@@ -16,14 +16,18 @@ import { getStrategicHint, StrategicHintOutput } from '@/ai/flows/ai-strategic-h
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { socket } from '@/lib/socket';
+import { useFirestore, useDoc } from '@/firebase';
+import { doc, updateDoc, onSnapshot, arrayUnion } from 'firebase/firestore';
 
 export default function GameArena() {
   const params = useParams();
   const roomId = params?.roomId as string;
   const router = useRouter();
+  const db = useFirestore();
   
-  const [gameState, setGameState] = useState<GameState | null>(null);
+  const roomRef = useMemo(() => (db && roomId ? doc(db, 'rooms', roomId) : null), [db, roomId]);
+  const { data: gameState, loading } = useDoc<GameState>(roomRef);
+
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingCard, setPendingCard] = useState<UnoCard | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -31,63 +35,128 @@ export default function GameArena() {
   const [playerId, setPlayerId] = useState<string>('');
 
   useEffect(() => {
-    if (!roomId) return;
-
-    // Connect to socket
-    socket.connect();
-    
-    // Generate a simple ID for this session
-    const myId = Math.random().toString(36).substring(7);
+    let myId = localStorage.getItem('uno_player_id');
+    if (!myId) {
+      myId = Math.random().toString(36).substring(7);
+      localStorage.setItem('uno_player_id', myId);
+    }
     setPlayerId(myId);
+  }, []);
 
-    // Join room
-    socket.emit('join_room', { roomId, playerId: myId, name: localStorage.getItem('uno_username') || 'Player' });
+  useEffect(() => {
+    if (!gameState || !playerId || !roomRef) return;
 
-    // Listen for state updates
-    socket.on('game_state_update', (newState: GameState) => {
-      setGameState(newState);
-      setAiHint(null);
-    });
-
-    socket.on('error', (msg: string) => {
-      toast({ title: "Error", variant: "destructive", description: msg });
-    });
-
-    return () => {
-      socket.emit('leave_room', { roomId });
-      socket.disconnect();
-    };
-  }, [roomId]);
+    const myPresence = gameState.players.find(p => p.id === playerId);
+    if (!myPresence && gameState.status === 'lobby') {
+      const name = localStorage.getItem('uno_username') || 'Player';
+      updateDoc(roomRef, {
+        players: arrayUnion({ id: playerId, name, hand: [] })
+      });
+    }
+  }, [gameState, playerId, roomRef]);
 
   const localPlayer = gameState?.players.find(p => p.id === playerId);
-  const isMyTurn = gameState && gameState.players[gameState.currentPlayerIndex]?.id === playerId;
+  const isMyTurn = gameState && gameState.status === 'playing' && gameState.players[gameState.currentPlayerIndex]?.id === playerId;
   const topCard = gameState?.discardPile[gameState.discardPile.length - 1];
 
-  const handlePlayCard = (card: UnoCard) => {
-    if (!gameState || !topCard || !isMyTurn) return;
+  const handleStartGame = async () => {
+    if (!roomRef || !gameState) return;
+    
+    let deck = createDeck();
+    const updatedPlayers = gameState.players.map(p => ({
+      ...p,
+      hand: deck.splice(0, 7)
+    }));
+
+    const firstCard = deck.pop()!;
+    
+    updateDoc(roomRef, {
+      players: updatedPlayers,
+      drawPile: deck,
+      discardPile: [firstCard],
+      status: 'playing',
+      currentPlayerIndex: 0,
+      currentColor: firstCard.color === 'wild' ? 'red' : firstCard.color,
+      lastAction: 'Game started!'
+    });
+  };
+
+  const nextTurn = (state: GameState, skip = false) => {
+    let nextIndex = (state.currentPlayerIndex + state.direction * (skip ? 2 : 1) + state.players.length) % state.players.length;
+    return nextIndex;
+  };
+
+  const handlePlayCard = async (card: UnoCard, chosenColor?: CardColor) => {
+    if (!gameState || !roomRef || !isMyTurn || !topCard) return;
 
     if (!canPlayCard(card, topCard, gameState.currentColor)) {
       toast({ title: "Invalid move!", description: "Card must match color or value." });
       return;
     }
 
-    if (card.color === 'wild') {
+    if (card.color === 'wild' && !chosenColor) {
       setPendingCard(card);
       setShowColorPicker(true);
       return;
     }
 
-    socket.emit('play_card', { roomId, card, chosenColor: card.color });
+    const updatedPlayers = gameState.players.map(p => {
+      if (p.id === playerId) {
+        return { ...p, hand: p.hand.filter(c => c.id !== card.id) };
+      }
+      return p;
+    });
+
+    const isWinner = updatedPlayers.find(p => p.id === playerId)?.hand.length === 0;
+    
+    let skip = card.value === 'skip';
+    let direction = gameState.direction;
+    if (card.value === 'reverse') {
+      if (gameState.players.length === 2) skip = true;
+      else direction = direction === 1 ? -1 : 1;
+    }
+
+    const nextIdx = nextTurn({ ...gameState, direction }, skip);
+
+    updateDoc(roomRef, {
+      players: updatedPlayers,
+      discardPile: [...gameState.discardPile, card],
+      currentPlayerIndex: nextIdx,
+      currentColor: chosenColor || card.color as CardColor,
+      direction,
+      status: isWinner ? 'ended' : 'playing',
+      winner: isWinner ? playerId : undefined,
+      lastAction: `${localPlayer?.name} played ${card.value}`
+    });
   };
 
-  const handleDrawCard = () => {
-    if (!gameState || !isMyTurn) return;
-    socket.emit('draw_card', { roomId });
+  const handleDrawCard = async () => {
+    if (!gameState || !roomRef || !isMyTurn) return;
+
+    let { drawPile, discardPile } = gameState;
+    if (drawPile.length === 0) {
+      const top = discardPile.pop()!;
+      drawPile = shuffle(discardPile);
+      discardPile = [top];
+    }
+
+    const newCard = drawPile.pop()!;
+    const updatedPlayers = gameState.players.map(p => {
+      if (p.id === playerId) return { ...p, hand: [...p.hand, newCard] };
+      return p;
+    });
+
+    updateDoc(roomRef, {
+      players: updatedPlayers,
+      drawPile,
+      discardPile,
+      currentPlayerIndex: nextTurn(gameState),
+      lastAction: `${localPlayer?.name} drew a card`
+    });
   };
 
   const getAiStrategicHint = async () => {
     if (!gameState || !localPlayer || !topCard) return;
-    
     setIsAiLoading(true);
     try {
       const hint = await getStrategicHint({
@@ -106,11 +175,52 @@ export default function GameArena() {
     }
   };
 
-  if (!gameState) {
+  if (loading || !gameState) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center space-y-4">
+      <div className="h-screen w-screen flex flex-col items-center justify-center space-y-4 mesh-gradient">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         <p className="text-white/60 font-headline uppercase tracking-widest">Entering Arena...</p>
+      </div>
+    );
+  }
+
+  if (gameState.status === 'lobby') {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center space-y-8 mesh-gradient p-8">
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-headline font-bold text-white tracking-widest">WAITING ROOM</h1>
+          <p className="text-primary font-bold tracking-[0.5em] text-2xl">{roomId}</p>
+        </div>
+        
+        <div className="w-full max-w-md glass p-6 rounded-3xl space-y-6">
+          <div className="space-y-4">
+            <h2 className="text-xs font-headline font-bold text-white/50 uppercase tracking-widest">Players ({gameState.players.length}/10)</h2>
+            <div className="grid grid-cols-2 gap-4">
+              {gameState.players.map((p, i) => (
+                <div key={p.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
+                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+                    {p.name[0]}
+                  </div>
+                  <span className="text-sm font-bold text-white truncate">{p.name} {p.id === playerId && "(You)"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <Button 
+            disabled={gameState.players.length < 2}
+            onClick={handleStartGame}
+            className="w-full h-14 bg-primary hover:bg-primary/80 text-white font-headline font-bold rounded-2xl text-lg shadow-xl shadow-primary/20"
+          >
+            <PlayCircle className="w-6 h-6 mr-2" /> Start Combat
+          </Button>
+          {gameState.players.length < 2 && (
+            <p className="text-center text-[10px] text-white/30 uppercase tracking-tighter">At least 2 players required to start</p>
+          )}
+        </div>
+        <Button variant="ghost" onClick={() => router.push('/')} className="text-white/50 hover:text-white">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Leave Room
+        </Button>
       </div>
     );
   }
@@ -120,26 +230,26 @@ export default function GameArena() {
       <div className="flex-1 flex flex-col relative arena-3d">
         <div className="p-4 flex justify-between items-center glass border-b border-white/10 z-10">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => router.push('/')} className="text-white hover:bg-white/10">
-              <ArrowLeft className="w-5 h-5 mr-2" /> Lobby
+            <Button variant="ghost" onClick={() => router.push('/')} className="text-white hover:bg-white/10 h-8">
+              <ArrowLeft className="w-4 h-4 mr-2" /> Lobby
             </Button>
             <div className="flex flex-col">
               <span className="text-xs text-white/50">ROOM</span>
-              <span className="text-lg font-headline font-bold text-primary tracking-widest">{roomId}</span>
+              <span className="text-sm font-headline font-bold text-primary tracking-widest">{roomId}</span>
             </div>
           </div>
 
           <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
              <div className={cn(
-               "w-12 h-12 rounded-full blur-2xl absolute transition-all duration-500",
+               "w-10 h-10 rounded-full blur-2xl absolute transition-all duration-500",
                gameState.currentColor === 'red' && "bg-red-500",
                gameState.currentColor === 'blue' && "bg-blue-500",
                gameState.currentColor === 'green' && "bg-green-500",
                gameState.currentColor === 'yellow' && "bg-yellow-500"
              )}></div>
-             <span className="text-xs text-white/50 font-headline uppercase tracking-tighter">Current Color</span>
+             <span className="text-[10px] text-white/50 font-headline uppercase tracking-tighter">Current Color</span>
              <span className={cn(
-               "text-xl font-bold font-headline drop-shadow-lg transition-colors capitalize",
+               "text-lg font-bold font-headline drop-shadow-lg transition-colors capitalize",
                gameState.currentColor === 'red' && "text-red-500",
                gameState.currentColor === 'blue' && "text-blue-500",
                gameState.currentColor === 'green' && "text-green-500",
@@ -152,9 +262,9 @@ export default function GameArena() {
           <Button 
             onClick={getAiStrategicHint} 
             disabled={isAiLoading || !isMyTurn}
-            className="bg-accent/20 hover:bg-accent/40 text-accent border border-accent/30 rounded-full"
+            className="bg-accent/20 hover:bg-accent/40 text-accent border border-accent/30 rounded-full h-8 px-4"
           >
-            {isAiLoading ? "Thinking..." : <><Sparkles className="w-4 h-4 mr-2" /> AI Hint</>}
+            {isAiLoading ? "Thinking..." : <><Sparkles className="w-3 h-3 mr-2" /> AI Hint</>}
           </Button>
         </div>
 
@@ -175,12 +285,7 @@ export default function GameArena() {
                     <br />
                     <span className="italic mt-1 block">"{aiHint.reasoning}"</span>
                   </p>
-                  {aiHint.wildCardColorSuggestion && (
-                    <p className="text-[10px] text-primary mt-2 font-bold uppercase tracking-wider">
-                      Suggestion: Pick {aiHint.wildCardColorSuggestion}
-                    </p>
-                  )}
-                  <Button variant="ghost" size="sm" onClick={() => setAiHint(null)} className="h-6 text-[10px] p-0 mt-2 text-white/40 hover:text-white hover:bg-transparent">
+                  <Button variant="ghost" size="sm" onClick={() => setAiHint(null)} className="h-6 text-[10px] p-0 mt-2 text-white/40 hover:text-white">
                     Dismiss
                   </Button>
                 </div>
@@ -194,7 +299,7 @@ export default function GameArena() {
             {gameState.players.filter(p => p.id !== playerId).map((p, i) => (
               <div key={p.id} className="flex flex-col items-center gap-2">
                 <div className={cn(
-                  "w-16 h-16 rounded-full border-2 border-white/20 p-1 transition-all relative overflow-hidden",
+                  "w-14 h-14 rounded-full border-2 border-white/20 p-1 transition-all relative overflow-hidden",
                   gameState.currentPlayerIndex === gameState.players.indexOf(p) && "golden-glow"
                 )}>
                   <Image 
@@ -212,12 +317,6 @@ export default function GameArena() {
                 </div>
               </div>
             ))}
-            {gameState.players.length < 2 && (
-              <div className="flex flex-col items-center text-white/30 animate-pulse">
-                <Users className="w-12 h-12 mb-2" />
-                <p className="text-xs font-headline uppercase">Waiting for players...</p>
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-12 pile-3d">
@@ -244,7 +343,7 @@ export default function GameArena() {
                   <UnoCardUI card={card} isPlayable={false} />
                 </motion.div>
               ))}
-              <div className="w-24 h-36 border-2 border-white/5 rounded-xl opacity-0"></div>
+              <div className="w-20 h-32 sm:w-24 sm:h-36 border-2 border-white/5 rounded-xl opacity-0"></div>
               <div className="absolute -bottom-6 left-0 right-0 text-center">
                 <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Discard</span>
               </div>
@@ -262,7 +361,7 @@ export default function GameArena() {
           </div>
         </div>
 
-        <div className="h-56 glass border-t border-white/10 flex items-center justify-center relative p-4 group overflow-x-auto">
+        <div className="h-48 glass border-t border-white/10 flex items-center justify-center relative p-4 group overflow-x-auto">
           <div className="flex items-center justify-center -space-x-8 max-w-full px-12">
             {localPlayer?.hand.map((card, i) => (
               <UnoCardUI 
@@ -278,7 +377,10 @@ export default function GameArena() {
 
         <UnoButton 
           show={localPlayer?.hand.length === 2 && isMyTurn} 
-          onClick={() => socket.emit('shout_uno', { roomId })} 
+          onClick={() => {
+            updateDoc(roomRef, { lastAction: `${localPlayer?.name} shouted UNO!` });
+            toast({ title: "UNO!", description: "You shouted UNO!" });
+          }} 
         />
       </div>
 
@@ -288,12 +390,32 @@ export default function GameArena() {
         isOpen={showColorPicker} 
         onSelect={(color) => {
           if (pendingCard) {
-            socket.emit('play_card', { roomId, card: pendingCard, chosenColor: color });
+            handlePlayCard(pendingCard, color);
           }
           setShowColorPicker(false);
           setPendingCard(null);
         }} 
       />
+
+      <AnimatePresence>
+        {gameState.status === 'ended' && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="fixed inset-0 z-[200] glass flex items-center justify-center backdrop-blur-xl"
+          >
+            <div className="text-center space-y-6">
+              <h2 className="text-6xl font-headline font-bold text-white tracking-widest">GAME OVER</h2>
+              <div className="space-y-2">
+                <p className="text-primary uppercase tracking-[0.5em] text-xl">Winner</p>
+                <p className="text-4xl font-bold text-white">{gameState.players.find(p => p.id === gameState.winner)?.name}</p>
+              </div>
+              <Button onClick={() => router.push('/')} className="bg-primary hover:bg-primary/80 h-14 px-12 rounded-2xl font-bold text-lg">
+                Return to Lobby
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

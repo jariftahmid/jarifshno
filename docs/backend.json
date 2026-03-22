@@ -1,0 +1,82 @@
+
+{
+  "entities": {
+    "UnoCard": {
+      "title": "UnoCard",
+      "description": "Represents a single Uno card.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "color": { "type": "string", "enum": ["red", "blue", "green", "yellow", "wild"] },
+        "value": { "type": "string", "enum": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "skip", "reverse", "draw_two", "wild", "wild_draw_four"] }
+      },
+      "required": ["id", "color", "value"]
+    },
+    "Player": {
+      "title": "Player",
+      "description": "Represents a player in the game.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "hand": {
+          "type": "array",
+          "items": { "$ref": "#/backend/entities/UnoCard" }
+        }
+      },
+      "required": ["id", "name", "hand"]
+    },
+    "GameState": {
+      "title": "GameState",
+      "description": "The overall state of a game room.",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string" },
+        "players": {
+          "type": "array",
+          "items": { "$ref": "#/backend/entities/Player" }
+        },
+        "discardPile": {
+          "type": "array",
+          "items": { "$ref": "#/backend/entities/UnoCard" }
+        },
+        "drawPile": {
+          "type": "array",
+          "items": { "$ref": "#/backend/entities/UnoCard" }
+        },
+        "currentPlayerIndex": { "type": "number" },
+        "currentColor": { "type": "string" },
+        "direction": { "type": "number", "enum": [1, -1] },
+        "status": { "type": "string", "enum": ["lobby", "playing", "ended"] },
+        "winner": { "type": "string" },
+        "lastAction": { "type": "string" }
+      },
+      "required": ["roomId", "players", "discardPile", "drawPile", "currentPlayerIndex", "currentColor", "direction", "status"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message in the room chat.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "user", "text", "timestamp"]
+    }
+  },
+  "auth": {
+    "providers": ["anonymous"]
+  },
+  "firestore": {
+    "/rooms/{roomId}": {
+      "schema": "GameState",
+      "description": "Stores the current state of a specific game room."
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Stores chat messages for a specific room."
+    }
+  }
+}
