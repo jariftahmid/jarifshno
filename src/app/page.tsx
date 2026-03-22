@@ -7,8 +7,9 @@ import { Play, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { generateRoomCode, getInitialGameState } from '@/lib/uno-engine';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useAuth } from '@/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 import { toast } from '@/hooks/use-toast';
 
 export default function Lobby() {
@@ -18,21 +19,37 @@ export default function Lobby() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const db = useFirestore();
+  const auth = useAuth();
 
   useEffect(() => {
     const savedName = typeof window !== 'undefined' ? localStorage.getItem('uno_username') : null;
     if (savedName) setUsername(savedName);
   }, []);
 
-  const handleContinue = () => {
-    if (username.trim()) {
+  const handleContinue = async () => {
+    if (!username.trim()) return;
+    setIsLoading(true);
+    try {
+      // Ensure user is signed in before proceeding
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
       localStorage.setItem('uno_username', username);
       setStep('action');
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Authentication Error", variant: "destructive", description: "Could not connect to the arena." });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleCreateRoom = async () => {
-    if (!db) return;
+    if (!db) {
+      toast({ title: "Connecting...", description: "Please wait for the server connection." });
+      return;
+    }
+    
     setIsLoading(true);
     const code = generateRoomCode();
     try {
@@ -41,9 +58,8 @@ export default function Lobby() {
       router.push(`/game/${code}`);
     } catch (e) {
       console.error(e);
-      toast({ title: "Error", variant: "destructive", description: "Could not create room." });
-    } finally {
-      setIsLoading(false);
+      toast({ title: "Error", variant: "destructive", description: "Could not create room. Please try again." });
+      setIsLoading(false); // Reset loading only on error to keep UI smooth during transition
     }
   };
 
@@ -57,11 +73,11 @@ export default function Lobby() {
         router.push(`/game/${roomCode.toUpperCase()}`);
       } else {
         toast({ title: "Room Not Found", variant: "destructive", description: "This room code doesn't exist." });
+        setIsLoading(false);
       }
     } catch (e) {
       console.error(e);
       toast({ title: "Error", variant: "destructive", description: "Could not join room." });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -96,14 +112,15 @@ export default function Lobby() {
                   onChange={(e) => setUsername(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
                   className="bg-white/5 border-white/10 text-white h-12 rounded-xl"
+                  disabled={isLoading}
                 />
               </div>
               <Button 
-                disabled={!username.trim()} 
+                disabled={!username.trim() || isLoading} 
                 onClick={handleContinue}
                 className="w-full h-12 bg-primary hover:bg-primary/80 text-white font-headline font-bold rounded-xl"
               >
-                Continue <Play className="ml-2 w-4 h-4 fill-current" />
+                {isLoading ? "Connecting..." : <>Continue <Play className="ml-2 w-4 h-4 fill-current" /></>}
               </Button>
             </div>
           ) : (
@@ -125,6 +142,7 @@ export default function Lobby() {
                     value={roomCode}
                     onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                     className="bg-white/5 border-white/10 text-white h-12 rounded-xl text-center font-headline font-bold tracking-[0.5em]"
+                    disabled={isLoading}
                   />
                   <Button 
                     onClick={handleJoinRoom}
@@ -139,6 +157,7 @@ export default function Lobby() {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setStep('name')}
+                disabled={isLoading}
                 className="w-full text-white/40 hover:text-white"
               >
                 Change Username

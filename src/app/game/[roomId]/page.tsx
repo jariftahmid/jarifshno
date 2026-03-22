@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -16,35 +15,54 @@ import { getStrategicHint, StrategicHintOutput } from '@/ai/flows/ai-strategic-h
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useFirestore, useDoc } from '@/firebase';
+import { useFirestore, useDoc, useAuth } from '@/firebase';
 import { doc, updateDoc, onSnapshot, arrayUnion } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 
 export default function GameArena() {
   const params = useParams();
   const roomId = params?.roomId as string;
   const router = useRouter();
   const db = useFirestore();
+  const auth = useAuth();
   
   const roomRef = useMemo(() => (db && roomId ? doc(db, 'rooms', roomId) : null), [db, roomId]);
-  const { data: gameState, loading } = useDoc<GameState>(roomRef);
+  const { data: gameState, loading: docLoading } = useDoc<GameState>(roomRef);
 
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingCard, setPendingCard] = useState<UnoCard | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiHint, setAiHint] = useState<StrategicHintOutput | null>(null);
   const [playerId, setPlayerId] = useState<string>('');
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
+  // Initialize Auth and PlayerID
   useEffect(() => {
-    let myId = localStorage.getItem('uno_player_id');
-    if (!myId) {
-      myId = Math.random().toString(36).substring(7);
-      localStorage.setItem('uno_player_id', myId);
-    }
-    setPlayerId(myId);
-  }, []);
+    const initPlayer = async () => {
+      let myId = localStorage.getItem('uno_player_id');
+      if (!myId) {
+        myId = Math.random().toString(36).substring(7);
+        localStorage.setItem('uno_player_id', myId);
+      }
+      setPlayerId(myId);
 
+      if (!auth.currentUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (e) {
+          console.error("Auth error:", e);
+          toast({ title: "Auth Error", variant: "destructive", description: "Could not connect to game servers." });
+        }
+      }
+      setIsAuthLoading(false);
+    };
+
+    initPlayer();
+  }, [auth]);
+
+  // Handle player joining the room
   useEffect(() => {
-    if (!gameState || !playerId || !roomRef) return;
+    if (!gameState || !playerId || !roomRef || isAuthLoading) return;
 
     const myPresence = gameState.players.find(p => p.id === playerId);
     if (!myPresence && gameState.status === 'lobby') {
@@ -53,7 +71,7 @@ export default function GameArena() {
         players: arrayUnion({ id: playerId, name, hand: [] })
       });
     }
-  }, [gameState, playerId, roomRef]);
+  }, [gameState, playerId, roomRef, isAuthLoading]);
 
   const localPlayer = gameState?.players.find(p => p.id === playerId);
   const isMyTurn = gameState && gameState.status === 'playing' && gameState.players[gameState.currentPlayerIndex]?.id === playerId;
@@ -175,11 +193,20 @@ export default function GameArena() {
     }
   };
 
-  if (loading || !gameState) {
+  if (docLoading || isAuthLoading || (!gameState && !docLoading)) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center space-y-4 mesh-gradient">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         <p className="text-white/60 font-headline uppercase tracking-widest">Entering Arena...</p>
+      </div>
+    );
+  }
+
+  if (!gameState) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center space-y-8 mesh-gradient p-8">
+        <h2 className="text-2xl font-headline text-white">ROOM NOT FOUND</h2>
+        <Button onClick={() => router.push('/')}>Back to Lobby</Button>
       </div>
     );
   }
