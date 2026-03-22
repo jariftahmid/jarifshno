@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "player-1",
+      "description": "Avatar for player 1",
+      "imageUrl": "https://picsum.photos/seed/1/100/100",
+      "imageHint": "avatar person"
+    },
+    {
+      "id": "player-2",
+      "description": "Avatar for player 2",
+      "imageUrl": "https://picsum.photos/seed/2/100/100",
+      "imageHint": "avatar person"
+    },
+    {
+      "id": "player-3",
+      "description": "Avatar for player 3",
+      "imageUrl": "https://picsum.photos/seed/3/100/100",
+      "imageHint": "avatar person"
+    }
+  ]
 }
