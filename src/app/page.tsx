@@ -37,13 +37,13 @@ export default function Lobby() {
       localStorage.setItem('uno_username', username);
       setStep('action');
     } catch (e: any) {
-      console.error(e);
+      console.error("Auth Error:", e);
       toast({ 
-        title: "Authentication Error", 
+        title: "Arena Connection Error", 
         variant: "destructive", 
         description: e.message?.includes('invalid-api-key') 
-          ? "Firebase API Key is invalid. Please check your configuration." 
-          : "Could not connect to the arena." 
+          ? "Firebase API Key is missing or invalid. Check your .env file." 
+          : "Could not connect to the arena servers." 
       });
     } finally {
       setIsLoading(false);
@@ -59,7 +59,6 @@ export default function Lobby() {
     setIsLoading(true);
     const code = generateRoomCode();
     try {
-      // Ensure user is signed in before any write operation
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
@@ -68,8 +67,8 @@ export default function Lobby() {
       await setDoc(roomRef, getInitialGameState(code));
       router.push(`/game/${code}`);
     } catch (e: any) {
-      console.error(e);
-      toast({ title: "Error", variant: "destructive", description: e.message || "Could not create room. Please try again." });
+      console.error("Create Room Error:", e);
+      toast({ title: "Error", variant: "destructive", description: e.message || "Could not create room." });
       setIsLoading(false);
     }
   };
@@ -91,7 +90,7 @@ export default function Lobby() {
         setIsLoading(false);
       }
     } catch (e: any) {
-      console.error(e);
+      console.error("Join Room Error:", e);
       toast({ title: "Error", variant: "destructive", description: "Could not join room." });
       setIsLoading(false);
     }

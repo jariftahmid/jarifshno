@@ -6,3 +6,14 @@ export const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+// Validate that the config is present in development
+if (process.env.NODE_ENV === 'development') {
+  const missingKeys = Object.entries(firebaseConfig)
+    .filter(([_, value]) => !value)
+    .map(([key]) => key);
+
+  if (missingKeys.length > 0) {
+    console.warn(`Missing Firebase configuration keys: ${missingKeys.join(', ')}. Check your .env file.`);
+  }
+}
