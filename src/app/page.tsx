@@ -1,10 +1,9 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Play, Plus, Users, ShieldCheck } from 'lucide-react';
+import { Play, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { generateRoomCode, getInitialGameState } from '@/lib/uno-engine';
@@ -21,7 +20,7 @@ export default function Lobby() {
   const db = useFirestore();
 
   useEffect(() => {
-    const savedName = localStorage.getItem('uno_username');
+    const savedName = typeof window !== 'undefined' ? localStorage.getItem('uno_username') : null;
     if (savedName) setUsername(savedName);
   }, []);
 
@@ -41,6 +40,7 @@ export default function Lobby() {
       await setDoc(roomRef, getInitialGameState(code));
       router.push(`/game/${code}`);
     } catch (e) {
+      console.error(e);
       toast({ title: "Error", variant: "destructive", description: "Could not create room." });
     } finally {
       setIsLoading(false);
@@ -59,6 +59,7 @@ export default function Lobby() {
         toast({ title: "Room Not Found", variant: "destructive", description: "This room code doesn't exist." });
       }
     } catch (e) {
+      console.error(e);
       toast({ title: "Error", variant: "destructive", description: "Could not join room." });
     } finally {
       setIsLoading(false);
