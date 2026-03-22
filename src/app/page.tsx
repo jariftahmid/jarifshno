@@ -36,9 +36,15 @@ export default function Lobby() {
       }
       localStorage.setItem('uno_username', username);
       setStep('action');
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast({ title: "Authentication Error", variant: "destructive", description: "Could not connect to the arena." });
+      toast({ 
+        title: "Authentication Error", 
+        variant: "destructive", 
+        description: e.message?.includes('invalid-api-key') 
+          ? "Firebase API Key is invalid. Please check your configuration." 
+          : "Could not connect to the arena." 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -53,13 +59,18 @@ export default function Lobby() {
     setIsLoading(true);
     const code = generateRoomCode();
     try {
+      // Ensure user is signed in before any write operation
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+
       const roomRef = doc(db, 'rooms', code);
       await setDoc(roomRef, getInitialGameState(code));
       router.push(`/game/${code}`);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast({ title: "Error", variant: "destructive", description: "Could not create room. Please try again." });
-      setIsLoading(false); // Reset loading only on error to keep UI smooth during transition
+      toast({ title: "Error", variant: "destructive", description: e.message || "Could not create room. Please try again." });
+      setIsLoading(false);
     }
   };
 
@@ -67,6 +78,10 @@ export default function Lobby() {
     if (!db || roomCode.length !== 4) return;
     setIsLoading(true);
     try {
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+
       const roomRef = doc(db, 'rooms', roomCode.toUpperCase());
       const snap = await getDoc(roomRef);
       if (snap.exists()) {
@@ -75,7 +90,7 @@ export default function Lobby() {
         toast({ title: "Room Not Found", variant: "destructive", description: "This room code doesn't exist." });
         setIsLoading(false);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
       toast({ title: "Error", variant: "destructive", description: "Could not join room." });
       setIsLoading(false);
