@@ -1,9 +1,11 @@
+
 "use client"
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowLeft, Trophy, Info } from 'lucide-react';
+import { Sparkles, ArrowLeft, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UnoCard, CardColor, GameState, createDeck, canPlayCard, Player } from '@/lib/uno-engine';
 import UnoCardUI from '@/components/uno/UnoCardUI';
@@ -13,9 +15,11 @@ import UnoButton from '@/components/uno/UnoButton';
 import { getStrategicHint, StrategicHintOutput } from '@/ai/flows/ai-strategic-hint-tool';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function GameArena() {
-  const { roomId } = useParams();
+  const params = useParams();
+  const roomId = params?.roomId as string;
   const router = useRouter();
   
   // Game State
@@ -27,6 +31,7 @@ export default function GameArena() {
 
   // Initialize Game
   useEffect(() => {
+    if (!roomId) return;
     const deck = createDeck();
     const players: Player[] = [
       { id: '1', name: 'You', hand: deck.splice(0, 7), isLocal: true },
@@ -37,7 +42,7 @@ export default function GameArena() {
     const initialTop = deck.pop()!;
     
     setGameState({
-      roomId: roomId as string,
+      roomId: roomId,
       players,
       discardPile: [initialTop],
       drawPile: deck,
@@ -144,9 +149,7 @@ export default function GameArena() {
 
   return (
     <div className="flex h-screen w-screen mesh-gradient relative overflow-hidden font-body">
-      {/* Game Area */}
       <div className="flex-1 flex flex-col relative arena-3d">
-        {/* Header */}
         <div className="p-4 flex justify-between items-center glass border-b border-white/10 z-10">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => router.push('/')} className="text-white hover:bg-white/10">
@@ -161,12 +164,18 @@ export default function GameArena() {
           <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
              <div className={cn(
                "w-12 h-12 rounded-full blur-2xl absolute",
-               `bg-${gameState.currentColor}-500`
+               gameState.currentColor === 'red' && "bg-red-500",
+               gameState.currentColor === 'blue' && "bg-blue-500",
+               gameState.currentColor === 'green' && "bg-green-500",
+               gameState.currentColor === 'yellow' && "bg-yellow-500"
              )}></div>
              <span className="text-xs text-white/50 font-headline uppercase tracking-tighter">Current Color</span>
              <span className={cn(
                "text-xl font-bold font-headline drop-shadow-lg transition-colors capitalize",
-               gameState.currentColor === 'yellow' ? 'text-yellow-400' : `text-${gameState.currentColor}-500`
+               gameState.currentColor === 'red' && "text-red-500",
+               gameState.currentColor === 'blue' && "text-blue-500",
+               gameState.currentColor === 'green' && "text-green-500",
+               gameState.currentColor === 'yellow' && "text-yellow-400"
              )}>
                {gameState.currentColor}
              </span>
@@ -181,7 +190,6 @@ export default function GameArena() {
           </Button>
         </div>
 
-        {/* AI Hint Toast-like UI */}
         <AnimatePresence>
           {aiHint && (
             <motion.div 
@@ -213,18 +221,22 @@ export default function GameArena() {
           )}
         </AnimatePresence>
 
-        {/* Table Arena */}
         <div className="flex-1 flex flex-col items-center justify-center p-8 relative">
-          
-          {/* Opponents */}
           <div className="absolute top-12 left-0 right-0 flex justify-around px-20">
             {gameState.players.filter(p => !p.isLocal).map((p, i) => (
               <div key={p.id} className="flex flex-col items-center gap-2">
                 <div className={cn(
-                  "w-16 h-16 rounded-full border-2 border-white/20 p-1 transition-all",
+                  "w-16 h-16 rounded-full border-2 border-white/20 p-1 transition-all relative overflow-hidden",
                   gameState.currentPlayerIndex === gameState.players.indexOf(p) && "golden-glow"
                 )}>
-                  <img src={`https://picsum.photos/seed/${p.id}/100/100`} alt={p.name} className="w-full h-full rounded-full object-cover" />
+                  <Image 
+                    src={PlaceHolderImages.find(img => img.id === `player-${p.id}`)?.imageUrl || PlaceHolderImages[0].imageUrl} 
+                    alt={p.name} 
+                    width={100} 
+                    height={100} 
+                    className="w-full h-full rounded-full object-cover"
+                    data-ai-hint="avatar person"
+                  />
                 </div>
                 <div className="glass px-3 py-1 rounded-full text-center">
                   <p className="text-xs font-bold text-white">{p.name}</p>
@@ -234,9 +246,7 @@ export default function GameArena() {
             ))}
           </div>
 
-          {/* Draw and Discard Pile */}
           <div className="flex items-center gap-12 pile-3d">
-            {/* Draw Pile */}
             <motion.div 
               whileHover={{ scale: 1.05 }} 
               whileTap={{ scale: 0.95 }}
@@ -249,7 +259,6 @@ export default function GameArena() {
               </div>
             </motion.div>
 
-            {/* Discard Pile */}
             <div className="relative">
               {gameState.discardPile.slice(-3).map((card, i) => (
                 <motion.div
@@ -268,7 +277,6 @@ export default function GameArena() {
             </div>
           </div>
 
-          {/* Current Turn Indicator */}
           <div className="absolute bottom-48 left-0 right-0 text-center pointer-events-none">
              <motion.p 
                animate={{ opacity: [0.5, 1, 0.5] }}
@@ -280,7 +288,6 @@ export default function GameArena() {
           </div>
         </div>
 
-        {/* Player Hand */}
         <div className="h-56 glass border-t border-white/10 flex items-center justify-center relative p-4 group">
           <div className="flex items-center justify-center -space-x-8 max-w-full">
             {gameState.players[0].hand.map((card, i) => (
@@ -301,10 +308,8 @@ export default function GameArena() {
         />
       </div>
 
-      {/* Sidebar Chat */}
       <ChatSidebar />
 
-      {/* Color Picker Overlay */}
       <WildColorPicker 
         isOpen={showColorPicker} 
         onSelect={(color) => {
