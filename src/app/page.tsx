@@ -30,7 +30,6 @@ export default function Lobby() {
     if (!username.trim()) return;
     setIsLoading(true);
     try {
-      // Ensure user is signed in before proceeding
       if (!auth.currentUser) {
         await signInAnonymously(auth);
       }
@@ -41,9 +40,7 @@ export default function Lobby() {
       toast({ 
         title: "Arena Connection Error", 
         variant: "destructive", 
-        description: e.message?.includes('invalid-api-key') 
-          ? "Firebase API Key is missing or invalid. Check your .env file." 
-          : "Could not connect to the arena servers." 
+        description: e.message || "Could not connect to the arena servers." 
       });
     } finally {
       setIsLoading(false);

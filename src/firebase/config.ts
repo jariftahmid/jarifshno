@@ -7,13 +7,12 @@ export const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Validate that the config is present in development
-if (process.env.NODE_ENV === 'development') {
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const missingKeys = Object.entries(firebaseConfig)
     .filter(([_, value]) => !value)
     .map(([key]) => key);
 
   if (missingKeys.length > 0) {
-    console.warn(`Missing Firebase configuration keys: ${missingKeys.join(', ')}. Check your .env file.`);
+    console.warn(`Missing Firebase configuration keys: ${missingKeys.join(', ')}. Ensure your .env file is loaded.`);
   }
 }
