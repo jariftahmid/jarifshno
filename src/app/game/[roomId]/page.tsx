@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -102,14 +101,13 @@ export default function GameArena() {
       hand: deck.splice(0, 7)
     }));
 
-    // Ensure the first card is not a wild card for simplicity
     let firstCard = deck.pop()!;
     while (firstCard.color === 'wild') {
       deck.unshift(firstCard);
       firstCard = deck.pop()!;
     }
     
-    updateDoc(roomRef, {
+    await updateDoc(roomRef, {
       players: updatedPlayers,
       drawPile: deck,
       discardPile: [firstCard],
@@ -129,7 +127,6 @@ export default function GameArena() {
       return;
     }
 
-    // Handle Wild Card Color Selection
     if (card.color === 'wild' && !chosenColor) {
       setPendingCard(card);
       setShowColorPicker(true);
@@ -142,7 +139,6 @@ export default function GameArena() {
     let newDirection = gameState.direction;
     let newCurrentColor = (chosenColor || card.color) as CardColor;
 
-    // Remove played card from hand
     newPlayers = newPlayers.map(p => {
       if (p.id === playerId) {
         return { ...p, hand: p.hand.filter(c => c.id !== card.id) };
@@ -152,19 +148,15 @@ export default function GameArena() {
 
     const isWinner = newPlayers.find(p => p.id === playerId)?.hand.length === 0;
 
-    // Handle Reverse
     if (card.value === 'reverse') {
       if (newPlayers.length === 2) {
-        // In 2 player game, reverse acts as a skip
       } else {
         newDirection = (newDirection === 1 ? -1 : 1) as 1 | -1;
       }
     }
 
-    // Determine the next player index
     let nextPlayerIdx = (gameState.currentPlayerIndex + newDirection + newPlayers.length) % newPlayers.length;
 
-    // Handle Skip and Penalties (+2, +4)
     let skipNext = false;
     let penaltyCount = 0;
 
@@ -178,12 +170,10 @@ export default function GameArena() {
       penaltyCount = 4;
     }
 
-    // Apply penalty to the NEXT player
     if (penaltyCount > 0) {
       const penaltyCards: UnoCard[] = [];
       for (let i = 0; i < penaltyCount; i++) {
-        if (newDrawPile.length === 0) {
-          // Reshuffle discard pile into draw pile
+        if (newDrawPile.length === 0 && newDiscardPile.length > 1) {
           const top = newDiscardPile.pop()!;
           newDrawPile = shuffle(newDiscardPile);
           newDiscardPile = [top];
@@ -201,7 +191,6 @@ export default function GameArena() {
       });
     }
 
-    // If skip logic is active, increment player index again
     if (skipNext) {
       nextPlayerIdx = (nextPlayerIdx + newDirection + newPlayers.length) % newPlayers.length;
     }
@@ -221,7 +210,7 @@ export default function GameArena() {
       updateData.winner = playerId;
     }
 
-    updateDoc(roomRef, updateData);
+    await updateDoc(roomRef, updateData);
   };
 
   const handleDrawCard = async () => {
@@ -242,7 +231,7 @@ export default function GameArena() {
 
     const nextIdx = (gameState.currentPlayerIndex + gameState.direction + gameState.players.length) % gameState.players.length;
 
-    updateDoc(roomRef, {
+    await updateDoc(roomRef, {
       players: updatedPlayers,
       drawPile,
       discardPile,
@@ -333,7 +322,6 @@ export default function GameArena() {
   return (
     <div className="flex h-screen w-screen mesh-gradient relative overflow-hidden font-body">
       <div className="flex-1 flex flex-col relative arena-3d">
-        {/* Header */}
         <div className="p-3 md:p-4 flex justify-between items-center glass border-b border-white/10 z-20">
           <div className="flex items-center gap-2 md:gap-4">
             <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="text-white hover:bg-white/10 md:hidden">
@@ -393,7 +381,6 @@ export default function GameArena() {
           </div>
         </div>
 
-        {/* AI Hint Popup */}
         <AnimatePresence>
           {aiHint && (
             <motion.div 
@@ -420,9 +407,7 @@ export default function GameArena() {
           )}
         </AnimatePresence>
 
-        {/* Game Area */}
         <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 relative">
-          {/* Opponents */}
           <div className="absolute top-4 md:top-12 left-0 right-0 flex justify-center gap-4 md:gap-12 px-4 md:px-20 overflow-x-auto no-scrollbar">
             {gameState.players.filter(p => p.id !== playerId).map((p, i) => (
               <div key={p.id} className="flex flex-col items-center gap-1 md:gap-2 shrink-0">
@@ -447,7 +432,6 @@ export default function GameArena() {
             ))}
           </div>
 
-          {/* Table / Piles */}
           <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 pile-3d mt-12 md:mt-0">
             <motion.div 
               whileHover={{ scale: 1.05 }} 
@@ -479,7 +463,6 @@ export default function GameArena() {
             </div>
           </div>
 
-          {/* Turn Indicator */}
           <div className="absolute bottom-40 md:bottom-48 left-0 right-0 text-center pointer-events-none">
              <motion.p 
                animate={{ opacity: [0.5, 1, 0.5] }}
@@ -491,7 +474,6 @@ export default function GameArena() {
           </div>
         </div>
 
-        {/* Player Hand */}
         <div className="h-32 md:h-48 glass border-t border-white/10 flex items-center justify-start md:justify-center relative p-2 md:p-4 group overflow-x-auto no-scrollbar">
           <div className="flex items-center justify-center -space-x-8 md:-space-x-8 min-w-max px-8 md:px-12">
             {localPlayer?.hand.map((card, i) => (
@@ -515,7 +497,6 @@ export default function GameArena() {
         />
       </div>
 
-      {/* Responsive Chat Sidebar */}
       <AnimatePresence>
         {isChatOpen && (
           <motion.div

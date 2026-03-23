@@ -17,6 +17,9 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: 'Web Uno Arena - Multiplayer Card Game',
   description: 'A modern, multiplayer Uno experience with AI hints and glassmorphism design.',
+  manifest: '/manifest.json',
+  themeColor: '#D34CDB',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0',
 };
 
 export default function RootLayout({
@@ -26,6 +29,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      </head>
       <body className={`${inter.variable} ${spaceGrotesk.variable} font-body antialiased bg-background text-foreground overflow-hidden h-screen w-screen`}>
         <FirebaseClientProvider>
           {children}
