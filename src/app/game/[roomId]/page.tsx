@@ -1,10 +1,11 @@
+
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowLeft, Info, PlayCircle } from 'lucide-react';
+import { Sparkles, ArrowLeft, Info, PlayCircle, MessageCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UnoCard, CardColor, GameState, canPlayCard, createDeck, shuffle } from '@/lib/uno-engine';
 import UnoCardUI from '@/components/uno/UnoCardUI';
@@ -16,7 +17,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useFirestore, useDoc, useAuth } from '@/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 
 export default function GameArena() {
@@ -35,6 +36,10 @@ export default function GameArena() {
   const [aiHint, setAiHint] = useState<StrategicHintOutput | null>(null);
   const [playerId, setPlayerId] = useState<string>('');
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const [lastViewedMsgCount, setLastViewedMsgCount] = useState(0);
 
   useEffect(() => {
     const initPlayer = async () => {
@@ -58,6 +63,22 @@ export default function GameArena() {
 
     initPlayer();
   }, [auth]);
+
+  // Handle unread messages notification
+  useEffect(() => {
+    if (!db || !roomId) return;
+    const q = query(collection(db, 'rooms', roomId, 'messages'), orderBy('timestamp', 'desc'), limit(1));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!isChatOpen && !snapshot.empty) {
+        setHasUnreadMessages(true);
+      }
+    });
+    return () => unsubscribe();
+  }, [db, roomId, isChatOpen]);
+
+  useEffect(() => {
+    if (isChatOpen) setHasUnreadMessages(false);
+  }, [isChatOpen]);
 
   useEffect(() => {
     if (!gameState || !playerId || !roomRef || isAuthLoading) return;
@@ -216,16 +237,16 @@ export default function GameArena() {
 
   if (gameState.status === 'lobby') {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center space-y-8 mesh-gradient p-8">
+      <div className="h-screen w-screen flex flex-col items-center justify-center space-y-8 mesh-gradient p-8 overflow-y-auto">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-headline font-bold text-white tracking-widest">WAITING ROOM</h1>
-          <p className="text-primary font-bold tracking-[0.5em] text-2xl">{roomId}</p>
+          <h1 className="text-3xl md:text-4xl font-headline font-bold text-white tracking-widest">WAITING ROOM</h1>
+          <p className="text-primary font-bold tracking-[0.5em] text-xl md:text-2xl">{roomId}</p>
         </div>
         
-        <div className="w-full max-w-md glass p-6 rounded-3xl space-y-6">
+        <div className="w-full max-w-md glass p-4 md:p-6 rounded-3xl space-y-6">
           <div className="space-y-4">
             <h2 className="text-xs font-headline font-bold text-white/50 uppercase tracking-widest">Players ({gameState.players.length}/10)</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               {gameState.players.map((p, i) => (
                 <div key={p.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
@@ -258,28 +279,32 @@ export default function GameArena() {
   return (
     <div className="flex h-screen w-screen mesh-gradient relative overflow-hidden font-body">
       <div className="flex-1 flex flex-col relative arena-3d">
-        <div className="p-4 flex justify-between items-center glass border-b border-white/10 z-10">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => router.push('/')} className="text-white hover:bg-white/10 h-8">
+        {/* Header */}
+        <div className="p-3 md:p-4 flex justify-between items-center glass border-b border-white/10 z-20">
+          <div className="flex items-center gap-2 md:gap-4">
+            <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="text-white hover:bg-white/10 md:hidden">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" onClick={() => router.push('/')} className="hidden md:flex text-white hover:bg-white/10 h-8">
               <ArrowLeft className="w-4 h-4 mr-2" /> Lobby
             </Button>
             <div className="flex flex-col">
-              <span className="text-xs text-white/50">ROOM</span>
-              <span className="text-sm font-headline font-bold text-primary tracking-widest">{roomId}</span>
+              <span className="text-[10px] text-white/50 uppercase">ROOM</span>
+              <span className="text-xs md:text-sm font-headline font-bold text-primary tracking-widest">{roomId}</span>
             </div>
           </div>
 
           <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
              <div className={cn(
-               "w-10 h-10 rounded-full blur-2xl absolute transition-all duration-500",
+               "w-6 h-6 md:w-10 md:h-10 rounded-full blur-xl md:blur-2xl absolute transition-all duration-500 opacity-60",
                gameState.currentColor === 'red' && "bg-red-500",
                gameState.currentColor === 'blue' && "bg-blue-500",
                gameState.currentColor === 'green' && "bg-green-500",
                gameState.currentColor === 'yellow' && "bg-yellow-500"
              )}></div>
-             <span className="text-[10px] text-white/50 font-headline uppercase tracking-tighter">Current Color</span>
+             <span className="text-[8px] md:text-[10px] text-white/50 font-headline uppercase tracking-tighter">Color</span>
              <span className={cn(
-               "text-lg font-bold font-headline drop-shadow-lg transition-colors capitalize",
+               "text-sm md:text-lg font-bold font-headline drop-shadow-lg transition-colors capitalize",
                gameState.currentColor === 'red' && "text-red-500",
                gameState.currentColor === 'blue' && "text-blue-500",
                gameState.currentColor === 'green' && "text-green-500",
@@ -289,28 +314,45 @@ export default function GameArena() {
              </span>
           </div>
 
-          <Button 
-            onClick={getAiStrategicHint} 
-            disabled={isAiLoading || !isMyTurn}
-            className="bg-accent/20 hover:bg-accent/40 text-accent border border-accent/30 rounded-full h-8 px-4"
-          >
-            {isAiLoading ? "Thinking..." : <><Sparkles className="w-3 h-3 mr-2" /> AI Hint</>}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={getAiStrategicHint} 
+              disabled={isAiLoading || !isMyTurn}
+              className="bg-accent/20 hover:bg-accent/40 text-accent border border-accent/30 rounded-full h-8 px-2 md:px-4 text-[10px] md:text-xs"
+            >
+              {isAiLoading ? "..." : <><Sparkles className="w-3 h-3 mr-1 md:mr-2" /> AI Hint</>}
+            </Button>
+            
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsChatOpen(true)}
+                className="text-white hover:bg-white/10"
+              >
+                <MessageCircle className="w-5 h-5" />
+              </Button>
+              {hasUnreadMessages && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-[#1a161e] animate-pulse"></div>
+              )}
+            </div>
+          </div>
         </div>
 
+        {/* AI Hint Popup */}
         <AnimatePresence>
           {aiHint && (
             <motion.div 
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 20, opacity: 1 }}
               exit={{ x: -20, opacity: 0 }}
-              className="absolute top-24 left-4 z-50 glass p-4 rounded-xl border border-accent/40 w-80 shadow-2xl"
+              className="absolute top-20 left-2 md:left-4 z-50 glass p-3 md:p-4 rounded-xl border border-accent/40 w-[calc(100vw-32px)] md:w-80 shadow-2xl"
             >
               <div className="flex items-start gap-3">
-                <Info className="text-accent w-5 h-5 mt-0.5" />
+                <Info className="text-accent w-4 h-4 md:w-5 md:h-5 mt-0.5" />
                 <div>
-                  <p className="text-sm font-bold text-accent">AI Strategy</p>
-                  <p className="text-xs text-white/70 mt-1 leading-relaxed">
+                  <p className="text-xs md:text-sm font-bold text-accent">AI Strategy</p>
+                  <p className="text-[10px] md:text-xs text-white/70 mt-1 leading-relaxed">
                     Play the <span className="font-bold text-white capitalize">{aiHint.suggestedCard.color} {aiHint.suggestedCard.value}</span>.
                     <br />
                     <span className="italic mt-1 block">"{aiHint.reasoning}"</span>
@@ -324,12 +366,14 @@ export default function GameArena() {
           )}
         </AnimatePresence>
 
-        <div className="flex-1 flex flex-col items-center justify-center p-8 relative">
-          <div className="absolute top-12 left-0 right-0 flex justify-center gap-12 px-20">
+        {/* Game Area */}
+        <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 relative">
+          {/* Opponents */}
+          <div className="absolute top-4 md:top-12 left-0 right-0 flex justify-center gap-4 md:gap-12 px-4 md:px-20 overflow-x-auto no-scrollbar">
             {gameState.players.filter(p => p.id !== playerId).map((p, i) => (
-              <div key={p.id} className="flex flex-col items-center gap-2">
+              <div key={p.id} className="flex flex-col items-center gap-1 md:gap-2 shrink-0">
                 <div className={cn(
-                  "w-14 h-14 rounded-full border-2 border-white/20 p-1 transition-all relative overflow-hidden",
+                  "w-10 h-10 md:w-14 md:h-14 rounded-full border-2 border-white/20 p-0.5 md:p-1 transition-all relative overflow-hidden",
                   gameState.currentPlayerIndex === gameState.players.indexOf(p) && "golden-glow"
                 )}>
                   <Image 
@@ -341,15 +385,16 @@ export default function GameArena() {
                     data-ai-hint="avatar person"
                   />
                 </div>
-                <div className="glass px-3 py-1 rounded-full text-center min-w-[80px]">
-                  <p className="text-xs font-bold text-white truncate max-w-[100px]">{p.name}</p>
-                  <p className="text-[10px] text-primary uppercase">{p.hand.length} Cards</p>
+                <div className="glass px-2 md:px-3 py-0.5 md:py-1 rounded-full text-center min-w-[60px] md:min-w-[80px]">
+                  <p className="text-[8px] md:text-xs font-bold text-white truncate max-w-[60px] md:max-w-[100px]">{p.name}</p>
+                  <p className="text-[7px] md:text-[10px] text-primary uppercase">{p.hand.length} Cards</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="flex items-center gap-12 pile-3d">
+          {/* Table / Piles */}
+          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 pile-3d mt-12 md:mt-0">
             <motion.div 
               whileHover={{ scale: 1.05 }} 
               whileTap={{ scale: 0.95 }}
@@ -357,8 +402,8 @@ export default function GameArena() {
               className={cn("relative cursor-pointer", !isMyTurn && "cursor-not-allowed opacity-50")}
             >
               <UnoCardUI card={{ id: 'back', color: 'wild', value: 'wild' }} isOpponent />
-              <div className="absolute -bottom-6 left-0 right-0 text-center">
-                <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Draw Deck</span>
+              <div className="absolute -bottom-4 md:-bottom-6 left-0 right-0 text-center">
+                <span className="text-[8px] md:text-[10px] text-white/40 font-bold uppercase tracking-widest">Draw</span>
               </div>
             </motion.div>
 
@@ -373,26 +418,28 @@ export default function GameArena() {
                   <UnoCardUI card={card} isPlayable={false} />
                 </motion.div>
               ))}
-              <div className="w-20 h-32 sm:w-24 sm:h-36 border-2 border-white/5 rounded-xl opacity-0"></div>
-              <div className="absolute -bottom-6 left-0 right-0 text-center">
-                <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Discard</span>
+              <div className="w-16 h-24 md:w-24 md:h-36 border-2 border-white/5 rounded-xl opacity-0"></div>
+              <div className="absolute -bottom-4 md:-bottom-6 left-0 right-0 text-center">
+                <span className="text-[8px] md:text-[10px] text-white/40 font-bold uppercase tracking-widest">Discard</span>
               </div>
             </div>
           </div>
 
-          <div className="absolute bottom-48 left-0 right-0 text-center pointer-events-none">
+          {/* Turn Indicator */}
+          <div className="absolute bottom-40 md:bottom-48 left-0 right-0 text-center pointer-events-none">
              <motion.p 
                animate={{ opacity: [0.5, 1, 0.5] }}
                transition={{ duration: 2, repeat: Infinity }}
-               className="text-lg font-headline font-bold text-white/30 tracking-[0.3em] uppercase"
+               className="text-xs md:text-lg font-headline font-bold text-white/30 tracking-[0.3em] uppercase"
              >
                {isMyTurn ? "Your Turn" : `${gameState.players[gameState.currentPlayerIndex]?.name}'s Turn`}
              </motion.p>
           </div>
         </div>
 
-        <div className="h-48 glass border-t border-white/10 flex items-center justify-center relative p-4 group overflow-x-auto">
-          <div className="flex items-center justify-center -space-x-8 max-w-full px-12">
+        {/* Player Hand */}
+        <div className="h-32 md:h-48 glass border-t border-white/10 flex items-center justify-start md:justify-center relative p-2 md:p-4 group overflow-x-auto no-scrollbar">
+          <div className="flex items-center justify-center -space-x-8 md:-space-x-8 min-w-max px-8 md:px-12">
             {localPlayer?.hand.map((card, i) => (
               <UnoCardUI 
                 key={card.id} 
@@ -414,7 +461,24 @@ export default function GameArena() {
         />
       </div>
 
-      <ChatSidebar roomId={roomId} userName={localPlayer?.name || 'Player'} />
+      {/* Responsive Chat Sidebar */}
+      <AnimatePresence>
+        {isChatOpen && (
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-0 md:relative md:inset-auto z-[100] md:z-30 w-full md:w-80 h-full"
+          >
+            <ChatSidebar 
+              roomId={roomId} 
+              userName={localPlayer?.name || 'Player'} 
+              onClose={() => setIsChatOpen(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <WildColorPicker 
         isOpen={showColorPicker} 
@@ -431,15 +495,15 @@ export default function GameArena() {
         {gameState.status === 'ended' && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="fixed inset-0 z-[200] glass flex items-center justify-center backdrop-blur-xl"
+            className="fixed inset-0 z-[200] glass flex items-center justify-center backdrop-blur-xl p-6"
           >
             <div className="text-center space-y-6">
-              <h2 className="text-6xl font-headline font-bold text-white tracking-widest">GAME OVER</h2>
+              <h2 className="text-3xl md:text-6xl font-headline font-bold text-white tracking-widest">GAME OVER</h2>
               <div className="space-y-2">
-                <p className="text-primary uppercase tracking-[0.5em] text-xl">Winner</p>
-                <p className="text-4xl font-bold text-white">{gameState.players.find(p => p.id === gameState.winner)?.name}</p>
+                <p className="text-primary uppercase tracking-[0.5em] text-lg md:text-xl">Winner</p>
+                <p className="text-2xl md:text-4xl font-bold text-white">{gameState.players.find(p => p.id === gameState.winner)?.name}</p>
               </div>
-              <Button onClick={() => router.push('/')} className="bg-primary hover:bg-primary/80 h-14 px-12 rounded-2xl font-bold text-lg">
+              <Button onClick={() => router.push('/')} className="w-full md:w-auto bg-primary hover:bg-primary/80 h-14 px-12 rounded-2xl font-bold text-lg">
                 Return to Lobby
               </Button>
             </div>

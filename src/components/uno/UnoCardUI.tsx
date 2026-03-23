@@ -1,3 +1,4 @@
+
 "use client"
 
 import React from 'react';
@@ -36,13 +37,14 @@ const UnoCardUI: React.FC<UnoCardUIProps> = ({ card, onClick, isPlayable, classN
     return (
       <motion.div
         className={cn(
-          "w-12 h-18 sm:w-16 sm:h-24 rounded-lg border-2 border-white/20 glass card-plastic flex items-center justify-center overflow-hidden",
+          "w-12 h-20 md:w-16 md:h-24 rounded-lg border-2 border-white/20 glass card-plastic flex items-center justify-center overflow-hidden",
           className
         )}
         initial={{ y: 0 }}
       >
-        <div className="w-full h-full bg-gradient-to-br from-purple-900 to-indigo-950 flex items-center justify-center">
-          <span className="text-white/20 text-xl font-bold font-headline select-none">U</span>
+        <div className="w-full h-full bg-gradient-to-br from-purple-900 to-indigo-950 flex items-center justify-center relative">
+          <span className="text-white/20 text-xl md:text-2xl font-bold font-headline select-none">U</span>
+          <div className="absolute inset-0 bg-white/5 pointer-events-none"></div>
         </div>
       </motion.div>
     );
@@ -51,36 +53,36 @@ const UnoCardUI: React.FC<UnoCardUIProps> = ({ card, onClick, isPlayable, classN
   return (
     <motion.div
       layoutId={card.id}
-      whileHover={isPlayable ? { y: -30, scale: 1.1, zIndex: 50 } : {}}
+      whileHover={isPlayable ? { y: -20, scale: 1.1, zIndex: 50 } : {}}
       onClick={isPlayable ? onClick : undefined}
       className={cn(
-        "relative w-20 h-32 sm:w-24 sm:h-36 rounded-xl border-2 border-white/30 card-plastic cursor-pointer select-none transition-shadow",
+        "relative w-16 h-24 md:w-24 md:h-36 rounded-xl border-2 border-white/30 card-plastic cursor-pointer select-none transition-shadow shrink-0",
         colorMap[card.color],
         !isPlayable && "grayscale-[0.5] opacity-80 cursor-not-allowed",
         isPlayable && "hover:shadow-[0_0_20px_rgba(255,255,255,0.4)]",
         className
       )}
-      initial={{ y: 100, opacity: 0 }}
+      initial={{ y: 50, opacity: 0 }}
       animate={{ y: 0, opacity: 1, rotate: (index - 2) * 2 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
     >
-      <div className="absolute inset-2 border-2 border-white/20 rounded-lg flex flex-col items-center justify-center overflow-hidden bg-white/5 backdrop-blur-sm">
-        <span className="text-white text-3xl font-bold font-headline drop-shadow-md">
+      <div className="absolute inset-1.5 md:inset-2 border-2 border-white/20 rounded-lg flex flex-col items-center justify-center overflow-hidden bg-white/5 backdrop-blur-sm">
+        <span className="text-white text-xl md:text-3xl font-bold font-headline drop-shadow-md">
           {displayValue(card.value)}
         </span>
         
         {card.color === 'wild' && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-             <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-red-500 via-yellow-400 to-blue-500 blur-xl"></div>
+             <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-tr from-red-500 via-yellow-400 to-blue-500 blur-xl"></div>
           </div>
         )}
       </div>
       
       {/* Corner indicators */}
-      <div className="absolute top-1 left-1.5 text-xs font-bold text-white/80">
+      <div className="absolute top-0.5 left-1 md:top-1 md:left-1.5 text-[8px] md:text-xs font-bold text-white/80">
         {displayValue(card.value)}
       </div>
-      <div className="absolute bottom-1 right-1.5 text-xs font-bold text-white/80 rotate-180">
+      <div className="absolute bottom-0.5 right-1 md:bottom-1 md:right-1.5 text-[8px] md:text-xs font-bold text-white/80 rotate-180">
         {displayValue(card.value)}
       </div>
     </motion.div>

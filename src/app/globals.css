@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -34,6 +35,8 @@
   body {
     @apply bg-background text-foreground;
     background-image: radial-gradient(circle at 50% 50%, #1a161e 0%, #0d0b0f 100%);
+    overflow: hidden;
+    touch-action: manipulation;
   }
 }
 
@@ -90,16 +93,24 @@
 }
 
 .golden-glow {
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.3);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.4), 0 0 20px rgba(255, 215, 0, 0.2);
   animation: pulse-glow 2s infinite ease-in-out;
 }
 
 @keyframes pulse-glow {
   0%, 100% { opacity: 0.8; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
+  50% { opacity: 1; transform: scale(1.03); }
 }
 
 .uno-btn {
   background: linear-gradient(135deg, #ff4d4d, #f9cb28);
   box-shadow: 0 0 20px rgba(255, 77, 77, 0.4);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
