@@ -31,7 +31,20 @@ export default function Lobby() {
     setIsLoading(true);
     try {
       if (!auth.currentUser) {
-        await signInAnonymously(auth);
+        try {
+          await signInAnonymously(auth);
+        } catch (authError: any) {
+          if (authError.code === 'auth/configuration-not-found') {
+            toast({
+              title: "Setup Required",
+              variant: "destructive",
+              description: "Please enable 'Anonymous' sign-in in your Firebase Console (Build > Authentication > Sign-in method)."
+            });
+            setIsLoading(false);
+            return;
+          }
+          throw authError;
+        }
       }
       localStorage.setItem('uno_username', username);
       setStep('action');
@@ -56,10 +69,6 @@ export default function Lobby() {
     setIsLoading(true);
     const code = generateRoomCode();
     try {
-      if (!auth.currentUser) {
-        await signInAnonymously(auth);
-      }
-
       const roomRef = doc(db, 'rooms', code);
       await setDoc(roomRef, getInitialGameState(code));
       router.push(`/game/${code}`);
@@ -74,10 +83,6 @@ export default function Lobby() {
     if (!db || roomCode.length !== 4) return;
     setIsLoading(true);
     try {
-      if (!auth.currentUser) {
-        await signInAnonymously(auth);
-      }
-
       const roomRef = doc(db, 'rooms', roomCode.toUpperCase());
       const snap = await getDoc(roomRef);
       if (snap.exists()) {
