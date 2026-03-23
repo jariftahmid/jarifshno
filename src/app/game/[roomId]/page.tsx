@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowLeft, Info, PlayCircle, MessageCircle, X } from 'lucide-react';
+import { Sparkles, ArrowLeft, Info, PlayCircle, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UnoCard, CardColor, GameState, canPlayCard, createDeck, shuffle } from '@/lib/uno-engine';
 import UnoCardUI from '@/components/uno/UnoCardUI';
@@ -39,7 +39,6 @@ export default function GameArena() {
   
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-  const [lastViewedMsgCount, setLastViewedMsgCount] = useState(0);
 
   useEffect(() => {
     const initPlayer = async () => {
@@ -55,7 +54,6 @@ export default function GameArena() {
           await signInAnonymously(auth);
         } catch (e) {
           console.error("Auth error:", e);
-          toast({ title: "Auth Error", variant: "destructive", description: "Could not connect to game servers." });
         }
       }
       setIsAuthLoading(false);
@@ -64,7 +62,6 @@ export default function GameArena() {
     initPlayer();
   }, [auth]);
 
-  // Handle unread messages notification
   useEffect(() => {
     if (!db || !roomId) return;
     const q = query(collection(db, 'rooms', roomId, 'messages'), orderBy('timestamp', 'desc'), limit(1));
@@ -94,7 +91,7 @@ export default function GameArena() {
 
   const localPlayer = gameState?.players.find(p => p.id === playerId);
   const isMyTurn = gameState && gameState.status === 'playing' && gameState.players[gameState.currentPlayerIndex]?.id === playerId;
-  const topCard = gameState?.discardPile[gameState.discardPile.length - 1];
+  const topCard = gameState?.discardPile[gameState?.discardPile.length - 1];
 
   const handleStartGame = async () => {
     if (!roomRef || !gameState) return;
@@ -105,22 +102,23 @@ export default function GameArena() {
       hand: deck.splice(0, 7)
     }));
 
-    const firstCard = deck.pop()!;
+    // Ensure the first card is not a wild card for simplicity
+    let firstCard = deck.pop()!;
+    while (firstCard.color === 'wild') {
+      deck.unshift(firstCard);
+      firstCard = deck.pop()!;
+    }
     
-    await updateDoc(roomRef, {
+    updateDoc(roomRef, {
       players: updatedPlayers,
       drawPile: deck,
       discardPile: [firstCard],
       status: 'playing',
       currentPlayerIndex: 0,
-      currentColor: firstCard.color === 'wild' ? 'red' : firstCard.color,
+      currentColor: firstCard.color,
+      direction: 1,
       lastAction: 'Game started!'
     });
-  };
-
-  const nextTurn = (state: GameState, skip = false) => {
-    let nextIndex = (state.currentPlayerIndex + (state.direction || 1) * (skip ? 2 : 1) + state.players.length) % state.players.length;
-    return nextIndex;
   };
 
   const handlePlayCard = async (card: UnoCard, chosenColor?: CardColor) => {
@@ -131,45 +129,99 @@ export default function GameArena() {
       return;
     }
 
+    // Handle Wild Card Color Selection
     if (card.color === 'wild' && !chosenColor) {
       setPendingCard(card);
       setShowColorPicker(true);
       return;
     }
 
-    const updatedPlayers = gameState.players.map(p => {
+    let newPlayers = [...gameState.players];
+    let newDrawPile = [...gameState.drawPile];
+    let newDiscardPile = [...gameState.discardPile, card];
+    let newDirection = gameState.direction;
+    let newCurrentColor = (chosenColor || card.color) as CardColor;
+
+    // Remove played card from hand
+    newPlayers = newPlayers.map(p => {
       if (p.id === playerId) {
         return { ...p, hand: p.hand.filter(c => c.id !== card.id) };
       }
       return p;
     });
 
-    const isWinner = updatedPlayers.find(p => p.id === playerId)?.hand.length === 0;
-    
-    let skip = card.value === 'skip';
-    let direction = gameState.direction || 1;
+    const isWinner = newPlayers.find(p => p.id === playerId)?.hand.length === 0;
+
+    // Handle Reverse
     if (card.value === 'reverse') {
-      if (gameState.players.length === 2) skip = true;
-      else direction = direction === 1 ? -1 : 1;
+      if (newPlayers.length === 2) {
+        // In 2 player game, reverse acts as a skip
+      } else {
+        newDirection = (newDirection === 1 ? -1 : 1) as 1 | -1;
+      }
     }
 
-    const nextIdx = nextTurn({ ...gameState, direction }, skip);
+    // Determine the next player index
+    let nextPlayerIdx = (gameState.currentPlayerIndex + newDirection + newPlayers.length) % newPlayers.length;
+
+    // Handle Skip and Penalties (+2, +4)
+    let skipNext = false;
+    let penaltyCount = 0;
+
+    if (card.value === 'skip' || (card.value === 'reverse' && newPlayers.length === 2)) {
+      skipNext = true;
+    } else if (card.value === 'draw_two') {
+      skipNext = true;
+      penaltyCount = 2;
+    } else if (card.value === 'wild_draw_four') {
+      skipNext = true;
+      penaltyCount = 4;
+    }
+
+    // Apply penalty to the NEXT player
+    if (penaltyCount > 0) {
+      const penaltyCards: UnoCard[] = [];
+      for (let i = 0; i < penaltyCount; i++) {
+        if (newDrawPile.length === 0) {
+          // Reshuffle discard pile into draw pile
+          const top = newDiscardPile.pop()!;
+          newDrawPile = shuffle(newDiscardPile);
+          newDiscardPile = [top];
+        }
+        if (newDrawPile.length > 0) {
+          penaltyCards.push(newDrawPile.pop()!);
+        }
+      }
+
+      newPlayers = newPlayers.map((p, idx) => {
+        if (idx === nextPlayerIdx) {
+          return { ...p, hand: [...p.hand, ...penaltyCards] };
+        }
+        return p;
+      });
+    }
+
+    // If skip logic is active, increment player index again
+    if (skipNext) {
+      nextPlayerIdx = (nextPlayerIdx + newDirection + newPlayers.length) % newPlayers.length;
+    }
 
     const updateData: any = {
-      players: updatedPlayers,
-      discardPile: [...gameState.discardPile, card],
-      currentPlayerIndex: nextIdx,
-      currentColor: chosenColor || card.color as CardColor,
-      direction,
+      players: newPlayers,
+      drawPile: newDrawPile,
+      discardPile: newDiscardPile,
+      currentPlayerIndex: nextPlayerIdx,
+      currentColor: newCurrentColor,
+      direction: newDirection,
       status: isWinner ? 'ended' : 'playing',
-      lastAction: `${localPlayer?.name} played ${card.value}`
+      lastAction: `${localPlayer?.name} played ${card.color} ${card.value}`
     };
 
     if (isWinner) {
       updateData.winner = playerId;
     }
 
-    await updateDoc(roomRef, updateData);
+    updateDoc(roomRef, updateData);
   };
 
   const handleDrawCard = async () => {
@@ -188,11 +240,13 @@ export default function GameArena() {
       return p;
     });
 
-    await updateDoc(roomRef, {
+    const nextIdx = (gameState.currentPlayerIndex + gameState.direction + gameState.players.length) % gameState.players.length;
+
+    updateDoc(roomRef, {
       players: updatedPlayers,
       drawPile,
       discardPile,
-      currentPlayerIndex: nextTurn(gameState),
+      currentPlayerIndex: nextIdx,
       lastAction: `${localPlayer?.name} drew a card`
     });
   };
@@ -239,15 +293,15 @@ export default function GameArena() {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center space-y-8 mesh-gradient p-8 overflow-y-auto">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl md:text-4xl font-headline font-bold text-white tracking-widest">WAITING ROOM</h1>
+          <h1 className="text-3xl md:text-4xl font-headline font-bold text-white tracking-tight">WAITING ROOM</h1>
           <p className="text-primary font-bold tracking-[0.5em] text-xl md:text-2xl">{roomId}</p>
         </div>
         
-        <div className="w-full max-w-md glass p-4 md:p-6 rounded-3xl space-y-6">
+        <div className="w-full max-w-md glass p-6 rounded-3xl space-y-6">
           <div className="space-y-4">
             <h2 className="text-xs font-headline font-bold text-white/50 uppercase tracking-widest">Players ({gameState.players.length}/10)</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              {gameState.players.map((p, i) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {gameState.players.map((p) => (
                 <div key={p.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
                     {p.name[0]}
@@ -302,7 +356,7 @@ export default function GameArena() {
                gameState.currentColor === 'green' && "bg-green-500",
                gameState.currentColor === 'yellow' && "bg-yellow-500"
              )}></div>
-             <span className="text-[8px] md:text-[10px] text-white/50 font-headline uppercase tracking-tighter">Color</span>
+             <span className="text-[8px] md:text-[10px] text-white/50 font-headline uppercase tracking-tighter">Current Color</span>
              <span className={cn(
                "text-sm md:text-lg font-bold font-headline drop-shadow-lg transition-colors capitalize",
                gameState.currentColor === 'red' && "text-red-500",
@@ -346,13 +400,13 @@ export default function GameArena() {
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 20, opacity: 1 }}
               exit={{ x: -20, opacity: 0 }}
-              className="absolute top-20 left-2 md:left-4 z-50 glass p-3 md:p-4 rounded-xl border border-accent/40 w-[calc(100vw-32px)] md:w-80 shadow-2xl"
+              className="absolute top-20 left-4 z-50 glass p-4 rounded-xl border border-accent/40 w-[calc(100vw-32px)] md:w-80 shadow-2xl"
             >
               <div className="flex items-start gap-3">
-                <Info className="text-accent w-4 h-4 md:w-5 md:h-5 mt-0.5" />
+                <Info className="text-accent w-5 h-5 mt-0.5" />
                 <div>
-                  <p className="text-xs md:text-sm font-bold text-accent">AI Strategy</p>
-                  <p className="text-[10px] md:text-xs text-white/70 mt-1 leading-relaxed">
+                  <p className="text-sm font-bold text-accent">AI Strategy</p>
+                  <p className="text-xs text-white/70 mt-1 leading-relaxed">
                     Play the <span className="font-bold text-white capitalize">{aiHint.suggestedCard.color} {aiHint.suggestedCard.value}</span>.
                     <br />
                     <span className="italic mt-1 block">"{aiHint.reasoning}"</span>
@@ -403,7 +457,7 @@ export default function GameArena() {
             >
               <UnoCardUI card={{ id: 'back', color: 'wild', value: 'wild' }} isOpponent />
               <div className="absolute -bottom-4 md:-bottom-6 left-0 right-0 text-center">
-                <span className="text-[8px] md:text-[10px] text-white/40 font-bold uppercase tracking-widest">Draw</span>
+                <span className="text-[8px] md:text-[10px] text-white/40 font-bold uppercase tracking-widest">Draw Pile</span>
               </div>
             </motion.div>
 
@@ -500,7 +554,7 @@ export default function GameArena() {
             <div className="text-center space-y-6">
               <h2 className="text-3xl md:text-6xl font-headline font-bold text-white tracking-widest">GAME OVER</h2>
               <div className="space-y-2">
-                <p className="text-primary uppercase tracking-[0.5em] text-lg md:text-xl">Winner</p>
+                <p className="text-primary uppercase tracking-[0.5em] text-lg md:text-xl">Champion</p>
                 <p className="text-2xl md:text-4xl font-bold text-white">{gameState.players.find(p => p.id === gameState.winner)?.name}</p>
               </div>
               <Button onClick={() => router.push('/')} className="w-full md:w-auto bg-primary hover:bg-primary/80 h-14 px-12 rounded-2xl font-bold text-lg">

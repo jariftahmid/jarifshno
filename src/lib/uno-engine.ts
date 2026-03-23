@@ -32,18 +32,32 @@ export const createDeck = (): UnoCard[] => {
   const values: CardValue[] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'reverse', 'draw_two'];
   const deck: UnoCard[] = [];
 
+  // Each color has one '0' and two of each '1'-'9', skip, reverse, draw_two
   colors.forEach((color) => {
     values.forEach((value) => {
       const count = value === '0' ? 1 : 2;
       for (let i = 0; i < count; i++) {
-        deck.push({ id: `${color}-${value}-${i}-${Math.random().toString(36).substr(2, 5)}`, color, value });
+        deck.push({ 
+          id: `${color}-${value}-${i}-${Math.random().toString(36).substring(7)}`, 
+          color, 
+          value 
+        });
       }
     });
   });
 
+  // Four of each Wild and Wild Draw Four
   for (let i = 0; i < 4; i++) {
-    deck.push({ id: `wild-${i}-${Math.random().toString(36).substr(2, 5)}`, color: 'wild', value: 'wild' });
-    deck.push({ id: `wild-draw-four-${i}-${Math.random().toString(36).substr(2, 5)}`, color: 'wild', value: 'wild_draw_four' });
+    deck.push({ 
+      id: `wild-${i}-${Math.random().toString(36).substring(7)}`, 
+      color: 'wild', 
+      value: 'wild' 
+    });
+    deck.push({ 
+      id: `wild-draw-four-${i}-${Math.random().toString(36).substring(7)}`, 
+      color: 'wild', 
+      value: 'wild_draw_four' 
+    });
   }
 
   return shuffle(deck);
@@ -59,8 +73,11 @@ export const shuffle = <T>(array: T[]): T[] => {
 };
 
 export const canPlayCard = (card: UnoCard, topCard: UnoCard, currentColor: CardColor): boolean => {
+  // Wild cards can always be played
   if (card.color === 'wild') return true;
+  // Match color
   if (card.color === currentColor) return true;
+  // Match value
   if (card.value === topCard.value) return true;
   return false;
 };
@@ -70,12 +87,11 @@ export const generateRoomCode = () => {
 };
 
 export const getInitialGameState = (roomId: string): GameState => {
-  const deck = createDeck();
   return {
     roomId,
     players: [],
     discardPile: [],
-    drawPile: deck,
+    drawPile: [],
     currentPlayerIndex: 0,
     currentColor: 'red',
     direction: 1,
