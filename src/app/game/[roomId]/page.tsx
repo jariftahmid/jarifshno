@@ -4,9 +4,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowLeft, Info, Users, PlayCircle } from 'lucide-react';
+import { Sparkles, ArrowLeft, Info, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { UnoCard, CardColor, GameState, canPlayCard, Player, createDeck, shuffle } from '@/lib/uno-engine';
+import { UnoCard, CardColor, GameState, canPlayCard, createDeck, shuffle } from '@/lib/uno-engine';
 import UnoCardUI from '@/components/uno/UnoCardUI';
 import ChatSidebar from '@/components/uno/ChatSidebar';
 import WildColorPicker from '@/components/uno/WildColorPicker';
@@ -16,7 +16,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useFirestore, useDoc, useAuth } from '@/firebase';
-import { doc, updateDoc, onSnapshot, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 
 export default function GameArena() {
@@ -36,7 +36,6 @@ export default function GameArena() {
   const [playerId, setPlayerId] = useState<string>('');
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-  // Initialize Auth and PlayerID
   useEffect(() => {
     const initPlayer = async () => {
       let myId = localStorage.getItem('uno_player_id');
@@ -60,7 +59,6 @@ export default function GameArena() {
     initPlayer();
   }, [auth]);
 
-  // Handle player joining the room
   useEffect(() => {
     if (!gameState || !playerId || !roomRef || isAuthLoading) return;
 
@@ -88,7 +86,7 @@ export default function GameArena() {
 
     const firstCard = deck.pop()!;
     
-    updateDoc(roomRef, {
+    await updateDoc(roomRef, {
       players: updatedPlayers,
       drawPile: deck,
       discardPile: [firstCard],
@@ -100,7 +98,7 @@ export default function GameArena() {
   };
 
   const nextTurn = (state: GameState, skip = false) => {
-    let nextIndex = (state.currentPlayerIndex + state.direction * (skip ? 2 : 1) + state.players.length) % state.players.length;
+    let nextIndex = (state.currentPlayerIndex + (state.direction || 1) * (skip ? 2 : 1) + state.players.length) % state.players.length;
     return nextIndex;
   };
 
@@ -128,7 +126,7 @@ export default function GameArena() {
     const isWinner = updatedPlayers.find(p => p.id === playerId)?.hand.length === 0;
     
     let skip = card.value === 'skip';
-    let direction = gameState.direction;
+    let direction = gameState.direction || 1;
     if (card.value === 'reverse') {
       if (gameState.players.length === 2) skip = true;
       else direction = direction === 1 ? -1 : 1;
@@ -136,16 +134,21 @@ export default function GameArena() {
 
     const nextIdx = nextTurn({ ...gameState, direction }, skip);
 
-    updateDoc(roomRef, {
+    const updateData: any = {
       players: updatedPlayers,
       discardPile: [...gameState.discardPile, card],
       currentPlayerIndex: nextIdx,
       currentColor: chosenColor || card.color as CardColor,
       direction,
       status: isWinner ? 'ended' : 'playing',
-      winner: isWinner ? playerId : undefined,
       lastAction: `${localPlayer?.name} played ${card.value}`
-    });
+    };
+
+    if (isWinner) {
+      updateData.winner = playerId;
+    }
+
+    await updateDoc(roomRef, updateData);
   };
 
   const handleDrawCard = async () => {
@@ -164,7 +167,7 @@ export default function GameArena() {
       return p;
     });
 
-    updateDoc(roomRef, {
+    await updateDoc(roomRef, {
       players: updatedPlayers,
       drawPile,
       discardPile,
@@ -404,8 +407,8 @@ export default function GameArena() {
 
         <UnoButton 
           show={localPlayer?.hand.length === 2 && isMyTurn} 
-          onClick={() => {
-            updateDoc(roomRef, { lastAction: `${localPlayer?.name} shouted UNO!` });
+          onClick={async () => {
+            await updateDoc(roomRef, { lastAction: `${localPlayer?.name} shouted UNO!` });
             toast({ title: "UNO!", description: "You shouted UNO!" });
           }} 
         />
