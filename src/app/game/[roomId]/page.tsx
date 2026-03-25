@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +18,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useFirestore, useDoc, useAuth } from '@/firebase';
-import { doc, updateDoc, arrayUnion, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, collection } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 
 const TURN_TIME_LIMIT = 30000; // 30 seconds per turn
@@ -35,8 +35,6 @@ export default function GameArena() {
 
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingCard, setPendingCard] = useState<UnoCard | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiHint, setAiHint] = useState<StrategicHintOutput | null>(null);
   const [playerId, setPlayerId] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(100);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -48,12 +46,12 @@ export default function GameArena() {
       if (typeof window !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate(50);
       }
-      // Audio logic would go here: const audio = new Audio(`/sounds/${type}.mp3`); audio.play();
     } catch (e) {}
   };
 
+  // Initialize Player and Join Room
   useEffect(() => {
-    const initPlayer = async () => {
+    const initPlayerAndJoin = async () => {
       let myId = localStorage.getItem('uno_player_id');
       if (!myId) {
         myId = Math.random().toString(36).substring(7);
@@ -65,8 +63,29 @@ export default function GameArena() {
         await signInAnonymously(auth);
       }
     };
-    initPlayer();
+    initPlayerAndJoin();
   }, [auth]);
+
+  // Join the players list automatically
+  useEffect(() => {
+    const joinRoom = async () => {
+      if (!roomRef || !gameState || !playerId) return;
+      
+      const isAlreadyIn = gameState.players.some(p => p.id === playerId);
+      if (!isAlreadyIn && gameState.status === 'lobby') {
+        const myName = localStorage.getItem('uno_username') || `Player-${playerId.substring(0, 4)}`;
+        await updateDoc(roomRef, {
+          players: arrayUnion({
+            id: playerId,
+            name: myName,
+            hand: [],
+            hasShoutedUno: false
+          })
+        });
+      }
+    };
+    joinRoom();
+  }, [gameState?.players, playerId, roomRef, gameState?.status]);
 
   // Turn Timer Logic
   useEffect(() => {
@@ -77,7 +96,6 @@ export default function GameArena() {
       const remaining = Math.max(0, 100 - (elapsed / TURN_TIME_LIMIT) * 100);
       setTimeLeft(remaining);
 
-      // Auto-play if time runs out and it's my turn
       const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === playerId;
       if (remaining <= 0 && isMyTurn) {
         handleDrawCard();
@@ -106,7 +124,7 @@ export default function GameArena() {
       currentColor: firstCard.color,
       direction: 1,
       turnStartedAt: Date.now(),
-      lastAction: 'Combat initiated!'
+      lastAction: 'Arena battle started!'
     });
     playSound('turn');
   };
@@ -117,7 +135,7 @@ export default function GameArena() {
     if (!isMyTurn) return;
 
     if (!canPlayCard(card, topCard, gameState.currentColor)) {
-      toast({ title: "Forbidden Strike!", description: "Card doesn't match current element." });
+      toast({ title: "Invalid Move", description: "This card cannot be played." });
       return;
     }
 
@@ -228,20 +246,24 @@ export default function GameArena() {
         <h1 className="text-4xl font-headline font-bold text-white tracking-widest uppercase">Room: {roomId}</h1>
         <div className="w-full max-w-md glass p-6 rounded-3xl space-y-4">
           <div className="space-y-2">
-            <h2 className="text-xs font-headline text-white/50 uppercase">Combatants</h2>
-            {gameState.players.map(p => (
-              <div key={p.id} className="p-3 bg-white/5 rounded-xl border border-white/10 flex justify-between items-center">
-                <span className="text-white font-bold">{p.name} {p.id === playerId && "(YOU)"}</span>
-              </div>
-            ))}
+            <h2 className="text-xs font-headline text-white/50 uppercase">Combatants ({gameState.players.length})</h2>
+            <div className="max-h-48 overflow-y-auto space-y-2 no-scrollbar">
+              {gameState.players.map(p => (
+                <div key={p.id} className="p-3 bg-white/5 rounded-xl border border-white/10 flex justify-between items-center">
+                  <span className="text-white font-bold">{p.name} {p.id === playerId && "(YOU)"}</span>
+                </div>
+              ))}
+              {gameState.players.length === 0 && <p className="text-white/30 text-center text-xs">Waiting for players to join...</p>}
+            </div>
           </div>
           <Button 
             disabled={gameState.players.length < 2} 
             onClick={handleStartGame}
-            className="w-full h-14 bg-primary text-white font-headline font-bold rounded-2xl"
+            className="w-full h-14 bg-primary text-white font-headline font-bold rounded-2xl transition-all active:scale-95 disabled:opacity-50"
           >
             START COMBAT
           </Button>
+          <p className="text-[10px] text-center text-white/40">Requires 2+ players</p>
         </div>
       </div>
     );
@@ -268,12 +290,15 @@ export default function GameArena() {
 
            <div className="flex items-center gap-2">
               <Button 
-                onClick={() => setIsChatOpen(!isChatOpen)} 
+                onClick={() => {
+                  setIsChatOpen(!isChatOpen);
+                  setHasUnreadMessages(false);
+                }} 
                 variant="ghost" 
                 className="text-white relative"
               >
                 <MessageCircle className="w-5 h-5" />
-                {hasUnreadMessages && <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />}
+                {hasUnreadMessages && <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />}
               </Button>
            </div>
         </div>
@@ -290,7 +315,7 @@ export default function GameArena() {
                   <Image src={PlaceHolderImages[i % 3].imageUrl} alt={p.name} width={48} height={48} className="rounded-full" />
                 </div>
                 <div className="glass px-3 py-1 rounded-full mt-2 text-center min-w-[60px]">
-                  <p className="text-[10px] font-bold text-white">{p.name}</p>
+                  <p className="text-[10px] font-bold text-white truncate max-w-[80px]">{p.name}</p>
                   <p className="text-[8px] text-primary">{p.hand.length} Cards</p>
                 </div>
               </div>
@@ -299,7 +324,7 @@ export default function GameArena() {
 
           {/* Table */}
           <div className="flex items-center gap-12 pile-3d">
-            <motion.div whileTap={{ scale: 0.9 }} onClick={handleDrawCard} className={cn(!isMyTurn && "opacity-50 grayscale")}>
+            <motion.div whileTap={{ scale: 0.9 }} onClick={handleDrawCard} className={cn(!isMyTurn && "opacity-50 grayscale", "cursor-pointer")}>
               <UnoCardUI card={{ id: 'back', color: 'wild', value: 'wild' }} isOpponent />
             </motion.div>
             <div className="relative w-24 h-36 border-2 border-white/5 rounded-xl">

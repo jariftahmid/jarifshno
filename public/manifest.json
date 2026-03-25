@@ -1,7 +1,8 @@
+
 {
   "name": "Web Uno Arena",
   "short_name": "Uno Arena",
-  "description": "Multiplayer Uno with AI Strategy",
+  "description": "Multiplayer Uno Arena with AI hints.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d0b0f",

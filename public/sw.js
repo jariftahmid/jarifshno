@@ -1,5 +1,3 @@
-// Monetag Service Worker for Vignette and Push Notifications
-importScripts('https://izcle.com/vignette.min.js?zone=10782652');
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -7,4 +5,8 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request));
 });
