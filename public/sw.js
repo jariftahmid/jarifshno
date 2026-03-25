@@ -1,8 +1,10 @@
-// Standard Service Worker for PWA and Monetag Verification
-self.addEventListener('install', function(event) {
-  console.log('SW installed');
+// Monetag Service Worker for Vignette and Push Notifications
+importScripts('https://izcle.com/vignette.min.js?zone=10782652');
+
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
 });
 
-self.addEventListener('fetch', function(event) {
-  // Simple pass-through fetch handler
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
 });
