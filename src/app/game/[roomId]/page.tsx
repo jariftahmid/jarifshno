@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -150,6 +151,7 @@ export default function GameArena() {
 
     if (card.value === 'reverse') {
       if (newPlayers.length === 2) {
+        // In 2 players, reverse acts like a skip
       } else {
         newDirection = (newDirection === 1 ? -1 : 1) as 1 | -1;
       }
@@ -421,7 +423,6 @@ export default function GameArena() {
                     width={100} 
                     height={100} 
                     className="w-full h-full rounded-full object-cover"
-                    data-ai-hint="avatar person"
                   />
                 </div>
                 <div className="glass px-2 md:px-3 py-0.5 md:py-1 rounded-full text-center min-w-[60px] md:min-w-[80px]">

@@ -1,7 +1,8 @@
+
 const CACHE_NAME = 'uno-arena-v1';
 const ASSETS = [
   '/',
-  '/manifest.json'
+  '/manifest.json',
 ];
 
 self.addEventListener('install', (event) => {

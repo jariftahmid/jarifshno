@@ -29,18 +29,21 @@ export interface GameState {
 
 export const createDeck = (): UnoCard[] => {
   const colors: CardColor[] = ['red', 'blue', 'green', 'yellow'];
-  const values: CardValue[] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'reverse', 'draw_two'];
+  const actionValues: CardValue[] = ['skip', 'reverse', 'draw_two'];
+  const numberValues: CardValue[] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
   const deck: UnoCard[] = [];
 
-  // Each color has one '0' and two of each '1'-'9', skip, reverse, draw_two
   colors.forEach((color) => {
-    values.forEach((value) => {
-      const count = value === '0' ? 1 : 2;
-      for (let i = 0; i < count; i++) {
+    // One '0' per color
+    deck.push({ id: `${color}-0-${Math.random()}`, color, value: '0' });
+    
+    // Two of each 1-9, skip, reverse, draw_two per color
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', ...actionValues].forEach((val) => {
+      for (let i = 0; i < 2; i++) {
         deck.push({ 
-          id: `${color}-${value}-${i}-${Math.random().toString(36).substring(7)}`, 
+          id: `${color}-${val}-${i}-${Math.random().toString(36).substring(7)}`, 
           color, 
-          value 
+          value: val as CardValue 
         });
       }
     });
@@ -73,11 +76,8 @@ export const shuffle = <T>(array: T[]): T[] => {
 };
 
 export const canPlayCard = (card: UnoCard, topCard: UnoCard, currentColor: CardColor): boolean => {
-  // Wild cards can always be played
   if (card.color === 'wild') return true;
-  // Match color
   if (card.color === currentColor) return true;
-  // Match value
   if (card.value === topCard.value) return true;
   return false;
 };
