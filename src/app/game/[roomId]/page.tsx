@@ -16,7 +16,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useFirestore, useDoc, useAuth } from '@/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 
 const TURN_TIME_LIMIT = 30000; // 30 seconds per turn
@@ -75,6 +75,26 @@ export default function GameArena() {
     };
     joinRoom();
   }, [gameState?.players, playerId, roomRef, gameState?.status]);
+
+  // Unread Message Notification Listener
+  useEffect(() => {
+    if (!db || !roomId || isChatOpen) return;
+
+    const messagesRef = collection(db, 'rooms', roomId, 'messages');
+    const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(1));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty && !isChatOpen) {
+        const lastMsg = snapshot.docs[0].data();
+        const myName = localStorage.getItem('uno_username');
+        if (lastMsg.user !== myName) {
+          setHasUnreadMessages(true);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [db, roomId, isChatOpen]);
 
   // Turn Timer Logic
   useEffect(() => {
