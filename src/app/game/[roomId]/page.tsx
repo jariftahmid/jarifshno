@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -149,6 +148,7 @@ export default function GameArena() {
 
     const isWinner = newPlayers.find(p => p.id === playerId)?.hand.length === 0;
 
+    // Handle Reverse
     if (card.value === 'reverse') {
       if (newPlayers.length === 2) {
         // In 2 players, reverse acts like a skip
@@ -172,6 +172,7 @@ export default function GameArena() {
       penaltyCount = 4;
     }
 
+    // Handle Penalties (+2, +4)
     if (penaltyCount > 0) {
       const penaltyCards: UnoCard[] = [];
       for (let i = 0; i < penaltyCount; i++) {
@@ -220,6 +221,10 @@ export default function GameArena() {
 
     let { drawPile, discardPile } = gameState;
     if (drawPile.length === 0) {
+      if (discardPile.length <= 1) {
+        toast({ title: "No cards left!", description: "The deck and discard pile are empty." });
+        return;
+      }
       const top = discardPile.pop()!;
       drawPile = shuffle(discardPile);
       discardPile = [top];
