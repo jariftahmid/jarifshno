@@ -1,8 +1,7 @@
-
 {
   "name": "Web Uno Arena",
   "short_name": "Uno Arena",
-  "description": "Multiplayer Uno Arena with AI hints.",
+  "description": "Elite Multiplayer Card Combat",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d0b0f",

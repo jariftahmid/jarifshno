@@ -40,8 +40,15 @@ export default function RootLayout({
           {children}
           <Toaster />
         </FirebaseClientProvider>
-        <Script id="monetag-ads" strategy="afterInteractive">
+        
+        {/* Monetag Vignette/Vignette Ad Script */}
+        <Script id="monetag-vignette" strategy="afterInteractive">
           {`(function(s){s.dataset.zone='10782652',s.src='https://izcle.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`}
+        </Script>
+
+        {/* New Monetag Tag Script */}
+        <Script id="monetag-tag-new" strategy="afterInteractive">
+          {`(function(s){s.dataset.zone='10783024',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`}
         </Script>
       </body>
     </html>
