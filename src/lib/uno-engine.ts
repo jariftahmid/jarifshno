@@ -12,6 +12,7 @@ export interface Player {
   id: string;
   name: string;
   hand: UnoCard[];
+  hasShoutedUno?: boolean;
 }
 
 export interface GameState {
@@ -25,19 +26,19 @@ export interface GameState {
   status: 'lobby' | 'playing' | 'ended';
   winner?: string;
   lastAction?: string;
+  turnStartedAt?: number; // Timestamp for timer
 }
 
 export const createDeck = (): UnoCard[] => {
   const colors: CardColor[] = ['red', 'blue', 'green', 'yellow'];
   const actionValues: CardValue[] = ['skip', 'reverse', 'draw_two'];
-  const numberValues: CardValue[] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
   const deck: UnoCard[] = [];
 
   colors.forEach((color) => {
     // One '0' per color
     deck.push({ id: `${color}-0-${Math.random()}`, color, value: '0' });
     
-    // Two of each 1-9, skip, reverse, draw_two per color
+    // Two of each 1-9 and actions
     ['1', '2', '3', '4', '5', '6', '7', '8', '9', ...actionValues].forEach((val) => {
       for (let i = 0; i < 2; i++) {
         deck.push({ 
@@ -49,18 +50,10 @@ export const createDeck = (): UnoCard[] => {
     });
   });
 
-  // Four of each Wild and Wild Draw Four
+  // Four of each Wild
   for (let i = 0; i < 4; i++) {
-    deck.push({ 
-      id: `wild-${i}-${Math.random().toString(36).substring(7)}`, 
-      color: 'wild', 
-      value: 'wild' 
-    });
-    deck.push({ 
-      id: `wild-draw-four-${i}-${Math.random().toString(36).substring(7)}`, 
-      color: 'wild', 
-      value: 'wild_draw_four' 
-    });
+    deck.push({ id: `wild-${i}-${Math.random()}`, color: 'wild', value: 'wild' });
+    deck.push({ id: `wild4-${i}-${Math.random()}`, color: 'wild', value: 'wild_draw_four' });
   }
 
   return shuffle(deck);
