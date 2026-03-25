@@ -68,9 +68,16 @@ export default function Lobby() {
     
     setIsLoading(true);
     const code = generateRoomCode();
+    
+    let myId = localStorage.getItem('uno_player_id');
+    if (!myId) {
+      myId = Math.random().toString(36).substring(7);
+      localStorage.setItem('uno_player_id', myId);
+    }
+
     try {
       const roomRef = doc(db, 'rooms', code);
-      await setDoc(roomRef, getInitialGameState(code));
+      await setDoc(roomRef, getInitialGameState(code, myId));
       router.push(`/game/${code}`);
     } catch (e: any) {
       console.error("Create Room Error:", e);

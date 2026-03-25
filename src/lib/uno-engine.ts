@@ -1,4 +1,3 @@
-
 export type CardColor = 'red' | 'blue' | 'green' | 'yellow' | 'wild';
 export type CardValue = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'skip' | 'reverse' | 'draw_two' | 'wild' | 'wild_draw_four';
 
@@ -17,6 +16,7 @@ export interface Player {
 
 export interface GameState {
   roomId: string;
+  hostId: string;
   players: Player[];
   discardPile: UnoCard[];
   drawPile: UnoCard[];
@@ -24,7 +24,7 @@ export interface GameState {
   currentColor: CardColor;
   direction: 1 | -1;
   status: 'lobby' | 'playing' | 'ended';
-  winner?: string;
+  winner?: string | null;
   lastAction?: string;
   turnStartedAt?: number; // Timestamp for timer
 }
@@ -79,9 +79,10 @@ export const generateRoomCode = () => {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 };
 
-export const getInitialGameState = (roomId: string): GameState => {
+export const getInitialGameState = (roomId: string, hostId: string): GameState => {
   return {
     roomId,
+    hostId,
     players: [],
     discardPile: [],
     drawPile: [],

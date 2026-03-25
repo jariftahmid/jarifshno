@@ -1,11 +1,10 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowLeft, Info, PlayCircle, MessageCircle, Clock } from 'lucide-react';
+import { Sparkles, ArrowLeft, Info, PlayCircle, MessageCircle, Clock, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { UnoCard, CardColor, GameState, canPlayCard, createDeck, shuffle } from '@/lib/uno-engine';
@@ -13,12 +12,11 @@ import UnoCardUI from '@/components/uno/UnoCardUI';
 import ChatSidebar from '@/components/uno/ChatSidebar';
 import WildColorPicker from '@/components/uno/WildColorPicker';
 import UnoButton from '@/components/uno/UnoButton';
-import { getStrategicHint, StrategicHintOutput } from '@/ai/flows/ai-strategic-hint-tool';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useFirestore, useDoc, useAuth } from '@/firebase';
-import { doc, updateDoc, arrayUnion, collection } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 
 const TURN_TIME_LIMIT = 30000; // 30 seconds per turn
@@ -39,15 +37,6 @@ export default function GameArena() {
   const [timeLeft, setTimeLeft] = useState(100);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-
-  // Sound triggers
-  const playSound = (type: 'play' | 'draw' | 'uno' | 'turn' | 'win') => {
-    try {
-      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate(50);
-      }
-    } catch (e) {}
-  };
 
   // Initialize Player and Join Room
   useEffect(() => {
@@ -126,7 +115,6 @@ export default function GameArena() {
       turnStartedAt: Date.now(),
       lastAction: 'Arena battle started!'
     });
-    playSound('turn');
   };
 
   const handlePlayCard = async (card: UnoCard, chosenColor?: CardColor) => {
@@ -145,7 +133,6 @@ export default function GameArena() {
       return;
     }
 
-    playSound('play');
     let newPlayers = [...gameState.players];
     let newDrawPile = [...gameState.drawPile];
     let newDiscardPile = [...gameState.discardPile, card];
@@ -200,12 +187,10 @@ export default function GameArena() {
       turnStartedAt: Date.now(),
       lastAction: `${newPlayers.find(p => p.id === playerId)?.name} played ${card.color} ${card.value}`
     });
-    if (isWinner) playSound('win');
   };
 
   const handleDrawCard = async () => {
     if (!gameState || !roomRef) return;
-    playSound('draw');
     let { drawPile, discardPile, players, currentPlayerIndex, direction } = gameState;
     
     if (drawPile.length === 0) {
@@ -234,6 +219,7 @@ export default function GameArena() {
 
   const localPlayer = gameState?.players.find(p => p.id === playerId);
   const isMyTurn = gameState?.status === 'playing' && gameState.players[gameState.currentPlayerIndex]?.id === playerId;
+  const isHost = gameState?.hostId === playerId;
   const topCard = gameState?.discardPile[gameState?.discardPile.length - 1];
 
   if (docLoading || !gameState) {
@@ -243,27 +229,49 @@ export default function GameArena() {
   if (gameState.status === 'lobby') {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center space-y-8 mesh-gradient p-8">
-        <h1 className="text-4xl font-headline font-bold text-white tracking-widest uppercase">Room: {roomId}</h1>
+        <h1 className="text-4xl font-headline font-bold text-white tracking-widest uppercase text-center">Room: {roomId}</h1>
         <div className="w-full max-w-md glass p-6 rounded-3xl space-y-4">
           <div className="space-y-2">
             <h2 className="text-xs font-headline text-white/50 uppercase">Combatants ({gameState.players.length})</h2>
             <div className="max-h-48 overflow-y-auto space-y-2 no-scrollbar">
               {gameState.players.map(p => (
                 <div key={p.id} className="p-3 bg-white/5 rounded-xl border border-white/10 flex justify-between items-center">
-                  <span className="text-white font-bold">{p.name} {p.id === playerId && "(YOU)"}</span>
+                  <span className="text-white font-bold flex items-center gap-2">
+                    {p.name} 
+                    {p.id === playerId && <span className="text-[10px] text-primary">(YOU)</span>}
+                    {p.id === gameState.hostId && <span className="text-[10px] text-yellow-400">👑 HOST</span>}
+                  </span>
                 </div>
               ))}
               {gameState.players.length === 0 && <p className="text-white/30 text-center text-xs">Waiting for players to join...</p>}
             </div>
           </div>
-          <Button 
-            disabled={gameState.players.length < 2} 
-            onClick={handleStartGame}
-            className="w-full h-14 bg-primary text-white font-headline font-bold rounded-2xl transition-all active:scale-95 disabled:opacity-50"
-          >
-            START COMBAT
-          </Button>
-          <p className="text-[10px] text-center text-white/40">Requires 2+ players</p>
+          
+          <div className="flex flex-col gap-3">
+            {isHost ? (
+              <Button 
+                disabled={gameState.players.length < 2} 
+                onClick={handleStartGame}
+                className="w-full h-14 bg-primary text-white font-headline font-bold rounded-2xl transition-all active:scale-95 disabled:opacity-50"
+              >
+                START COMBAT
+              </Button>
+            ) : (
+              <div className="w-full p-4 bg-white/5 rounded-2xl border border-white/10 text-center">
+                <p className="text-white/70 font-headline text-sm animate-pulse">WAITING FOR HOST TO START...</p>
+              </div>
+            )}
+            
+            <Button 
+              variant="outline"
+              onClick={() => router.push('/')}
+              className="w-full h-12 border-white/10 text-white font-headline font-bold rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" /> LEAVE ARENA
+            </Button>
+          </div>
+          
+          {isHost && <p className="text-[10px] text-center text-white/40">Requires 2+ players</p>}
         </div>
       </div>
     );
@@ -304,7 +312,6 @@ export default function GameArena() {
         </div>
 
         <div className="flex-1 relative flex flex-col items-center justify-center">
-          {/* Opponents */}
           <div className="absolute top-12 left-0 right-0 flex justify-center gap-8 px-8">
             {gameState.players.filter(p => p.id !== playerId).map((p, i) => (
               <div key={p.id} className="flex flex-col items-center">
@@ -322,7 +329,6 @@ export default function GameArena() {
             ))}
           </div>
 
-          {/* Table */}
           <div className="flex items-center gap-12 pile-3d">
             <motion.div whileTap={{ scale: 0.9 }} onClick={handleDrawCard} className={cn(!isMyTurn && "opacity-50 grayscale", "cursor-pointer")}>
               <UnoCardUI card={{ id: 'back', color: 'wild', value: 'wild' }} isOpponent />
@@ -337,7 +343,6 @@ export default function GameArena() {
           </div>
         </div>
 
-        {/* Player Hand */}
         <div className="h-40 glass border-t border-white/10 flex items-center justify-center p-4 overflow-x-auto no-scrollbar">
            <div className="flex -space-x-8 md:-space-x-12">
              {localPlayer?.hand.map((c, i) => (
@@ -355,7 +360,6 @@ export default function GameArena() {
         <UnoButton 
           show={localPlayer?.hand.length === 1 && !localPlayer.hasShoutedUno} 
           onClick={async () => {
-            playSound('uno');
             const updated = gameState.players.map(p => p.id === playerId ? { ...p, hasShoutedUno: true } : p);
             await updateDoc(roomRef, { players: updated, lastAction: `${localPlayer?.name} shouted UNO!` });
           }} 
