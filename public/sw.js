@@ -1,12 +1,13 @@
-// Standard Service Worker for PWA and Ad Verification
-self.addEventListener('install', function(event) {
-  event.waitUntil(self.skipWaiting());
+// Standard Service Worker for PWA functionality and Monetag Verification
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
 });
 
-self.addEventListener('activate', function(event) {
-  event.waitUntil(self.clients.claim());
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
 });
 
-self.addEventListener('fetch', function(event) {
-  // Pass-through fetch handler
+self.addEventListener('fetch', (event) => {
+  // Add caching strategies here if needed for offline play
+  event.respondWith(fetch(event.request));
 });
