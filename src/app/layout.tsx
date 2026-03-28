@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
   description: 'A modern, multiplayer Uno experience with AI hints and glassmorphism design.',
   manifest: '/manifest.json',
   themeColor: '#D34CDB',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover',
 };
 
 export default function RootLayout({
