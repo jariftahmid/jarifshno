@@ -42,7 +42,7 @@ export default function RootLayout({
           <Toaster />
         </FirebaseClientProvider>
         
-        {/* Monetag Vignette/Vignette Ad Script */}
+        {/* Monetag Vignette Ad Script */}
         <Script id="monetag-vignette" strategy="afterInteractive">
           {`(function(s){s.dataset.zone='10782652',s.src='https://izcle.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`}
         </Script>

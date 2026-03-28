@@ -16,7 +16,8 @@
     {
       "src": "https://picsum.photos/seed/uno/512/512",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

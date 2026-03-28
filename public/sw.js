@@ -8,6 +8,5 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Standard fetch handler
-  event.respondWith(fetch(event.request));
+  // Basic fetch handler
 });
