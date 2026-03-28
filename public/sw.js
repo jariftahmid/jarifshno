@@ -1,4 +1,4 @@
-// Standard Service Worker for PWA functionality and Monetag Verification
+// Service Worker for PWA and Monetag verification
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -8,6 +8,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Add caching strategies here if needed for offline play
+  // Standard fetch handler
   event.respondWith(fetch(event.request));
 });
