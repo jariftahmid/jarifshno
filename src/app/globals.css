@@ -62,14 +62,7 @@
               radial-gradient(at 0% 100%, hsla(253,16%,7%,1) 0, transparent 50%), 
               radial-gradient(at 50% 100%, hsla(225,39%,30%,1) 0, transparent 50%), 
               radial-gradient(at 100% 100%, hsla(339,49%,30%,1) 0, transparent 50%);
-  background-size: 200% 200%;
-  animation: mesh 20s ease infinite;
-}
-
-@keyframes mesh {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  background-size: 100% 100%;
 }
 
 .card-plastic {
@@ -94,23 +87,12 @@
 }
 
 .pile-3d {
-  transform: rotateX(25deg) rotateZ(-5deg);
+  transform: rotateX(15deg);
   transform-style: preserve-3d;
 }
 
 .golden-glow {
-  box-shadow: 0 0 10px rgba(255, 215, 0, 0.4), 0 0 20px rgba(255, 215, 0, 0.2);
-  animation: pulse-glow 2s infinite ease-in-out;
-}
-
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.8; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.03); }
-}
-
-.uno-btn {
-  background: linear-gradient(135deg, #ff4d4d, #f9cb28);
-  box-shadow: 0 0 20px rgba(255, 77, 77, 0.4);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.3);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -120,3 +102,8 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.bg-red-500 { background-color: #ef4444; }
+.bg-blue-500 { background-color: #3b82f6; }
+.bg-green-500 { background-color: #22c55e; }
+.bg-yellow-400 { background-color: #facc15; }
