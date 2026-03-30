@@ -1,29 +1,15 @@
+import GameRedirect from '@/components/uno/GameRedirect';
 
-"use client"
-
-import { useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-
+/**
+ * Static params are required for dynamic routes when using output: export.
+ * This allows the build to succeed while we use client-side redirection
+ * to handle dynamic room IDs in the Capacitor app.
+ */
 export function generateStaticParams() {
-  return [{ roomId: 'lobby' }];
+  return [{ roomId: 'arena' }];
 }
 
-export default function GameRoomRedirect() {
-  const router = useRouter();
-  const params = useParams();
-  const roomId = params?.roomId as string;
-
-  useEffect(() => {
-    if (roomId) {
-      router.replace(`/game?roomId=${roomId}`);
-    } else {
-      router.replace('/');
-    }
-  }, [roomId, router]);
-
-  return (
-    <div className="h-screen w-screen flex items-center justify-center mesh-gradient text-white font-headline tracking-widest text-xl animate-pulse">
-      REROUTING TO ARENA...
-    </div>
-  );
+export default async function GameRoomRedirect(props: { params: Promise<{ roomId: string }> }) {
+  const params = await props.params;
+  return <GameRedirect roomId={params.roomId} />;
 }

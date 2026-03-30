@@ -1,8 +1,7 @@
-
 "use client"
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneOff, PhoneCall } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, PhoneCall, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { socket } from '@/lib/socket';
 import { toast } from '@/hooks/use-toast';
@@ -15,6 +14,7 @@ interface VoiceChatProps {
 export default function VoiceChat({ roomId, playerId }: VoiceChatProps) {
   const [isJoined, setIsJoined] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [activeSpeakers, setActiveSpeakers] = useState<string[]>([]);
   const localStream = useRef<MediaStream | null>(null);
   const peers = useRef<{ [key: string]: RTCPeerConnection }>({});
   const audioElements = useRef<{ [key: string]: HTMLAudioElement }>({});
@@ -112,9 +112,9 @@ export default function VoiceChat({ roomId, playerId }: VoiceChatProps) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       localStream.current = stream;
       setIsJoined(true);
-      toast({ title: "Voice Active", description: "You have joined the arena voice channel." });
+      toast({ title: "Comms Active", description: "Strategic voice channel established." });
     } catch (err) {
-      toast({ variant: "destructive", title: "Mic Access Denied", description: "Please enable microphone permissions." });
+      toast({ variant: "destructive", title: "Mic Access Denied", description: "Enable microphone permissions to speak." });
     }
   };
 
@@ -133,26 +133,30 @@ export default function VoiceChat({ roomId, playerId }: VoiceChatProps) {
 
   const toggleMute = () => {
     if (localStream.current) {
-      const enabled = localStream.current.getAudioTracks()[0].enabled;
-      localStream.current.getAudioTracks()[0].enabled = !enabled;
-      setIsMuted(enabled);
+      const track = localStream.current.getAudioTracks()[0];
+      track.enabled = !track.enabled;
+      setIsMuted(!track.enabled);
     }
   };
 
   return (
     <div className="flex items-center gap-2">
       {isJoined ? (
-        <>
-          <Button size="icon" variant="outline" onClick={toggleMute} className={isMuted ? "bg-red-500/20" : "bg-green-500/20"}>
+        <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
+          <Button size="icon" variant="ghost" onClick={toggleMute} className={isMuted ? "text-red-500 hover:bg-red-500/10" : "text-green-500 hover:bg-green-500/10"}>
             {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </Button>
-          <Button size="icon" variant="destructive" onClick={leaveVoice}>
+          <div className="flex items-center gap-1 px-2">
+            <Volume2 className="w-3 h-3 text-primary animate-pulse" />
+            <span className="text-[10px] font-bold text-white/50 uppercase tracking-tighter">Live</span>
+          </div>
+          <Button size="icon" variant="ghost" onClick={leaveVoice} className="text-white/30 hover:text-red-500">
             <PhoneOff className="w-4 h-4" />
           </Button>
-        </>
+        </div>
       ) : (
-        <Button size="sm" onClick={joinVoice} className="bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 flex gap-2 px-3">
-          <PhoneCall className="w-4 h-4" /> Voice
+        <Button size="sm" onClick={joinVoice} className="bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 h-8 flex gap-2 px-3 rounded-full">
+          <PhoneCall className="w-3 h-3" /> Voice
         </Button>
       )}
     </div>

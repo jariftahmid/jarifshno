@@ -1,7 +1,6 @@
-
 /**
  * @fileOverview Synthesized sound effects for the Uno game using Web Audio API.
- * This avoids the need for external MP3 files.
+ * This avoids the need for external MP3 files and works offline.
  */
 
 export const playSound = (type: 'play' | 'draw' | 'uno' | 'turn' | 'win') => {
@@ -39,7 +38,7 @@ export const playSound = (type: 'play' | 'draw' | 'uno' | 'turn' | 'win') => {
       osc.type = 'square';
       osc.frequency.setValueAtTime(523.25, now); // C5
       osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
-      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.setValueAtTime(0.1, now);
       gain.gain.linearRampToValueAtTime(0, now + 0.3);
       osc.start(now);
       osc.stop(now + 0.3);
