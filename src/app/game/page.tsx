@@ -4,9 +4,8 @@ import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, MessageCircle, Clock, LogOut, Users, Settings } from 'lucide-react';
+import { ArrowLeft, MessageCircle, LogOut, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { UnoCard, CardColor, GameState, canPlayCard, createDeck, shuffle } from '@/lib/uno-engine';
 import UnoCardUI from '@/components/uno/UnoCardUI';
 import ChatSidebar from '@/components/uno/ChatSidebar';
@@ -21,8 +20,6 @@ import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { playSound } from '@/lib/sounds';
 
-const TURN_TIME_LIMIT = 30000;
-
 function GameArenaContent() {
   const searchParams = useSearchParams();
   const roomId = searchParams?.get('roomId') as string;
@@ -36,7 +33,6 @@ function GameArenaContent() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pendingCard, setPendingCard] = useState<UnoCard | null>(null);
   const [playerId, setPlayerId] = useState<string>('');
-  const [timeLeft, setTimeLeft] = useState(100);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
@@ -75,21 +71,6 @@ function GameArenaContent() {
       if (isMyTurn) playSound('turn');
     }
   }, [gameState?.currentPlayerIndex, gameState?.status, playerId]);
-
-  useEffect(() => {
-    if (gameState?.status !== 'playing' || !gameState.turnStartedAt) return;
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - gameState.turnStartedAt!;
-      const remaining = Math.max(0, 100 - (elapsed / TURN_TIME_LIMIT) * 100);
-      setTimeLeft(remaining);
-      const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === playerId;
-      if (remaining <= 0 && isMyTurn) {
-        handleDrawCard();
-        clearInterval(interval);
-      }
-    }, 1000); // Updated to 1s for better mobile performance
-    return () => clearInterval(interval);
-  }, [gameState?.turnStartedAt, gameState?.currentPlayerIndex, playerId, gameState?.status]);
 
   const handleStartGame = async () => {
     if (!roomRef || !gameState) return;
@@ -188,6 +169,9 @@ function GameArenaContent() {
 
   const handleDrawCard = async () => {
     if (!gameState || !roomRef) return;
+    const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === playerId;
+    if (!isMyTurn) return;
+
     playSound('draw');
     let { drawPile, discardPile, players, currentPlayerIndex, direction } = gameState;
     
@@ -294,13 +278,6 @@ function GameArenaContent() {
               <span className="text-sm md:text-lg font-headline font-black text-primary drop-shadow-sm">{roomId}</span>
             </div>
             <VoiceChat roomId={roomId} playerId={playerId} />
-         </div>
-
-         <div className="hidden sm:flex flex-col items-center gap-2 w-32 md:w-48">
-            <Progress value={timeLeft} className="h-1 md:h-1.5 bg-white/10" />
-            <div className="flex items-center gap-2 text-[8px] md:text-[10px] font-headline font-bold text-white/70 uppercase tracking-widest">
-              <Clock className="w-2 h-2 md:w-3 h-3 text-primary" /> {Math.ceil((timeLeft / 100) * 30)}s
-            </div>
          </div>
 
          <div className="flex items-center gap-2">

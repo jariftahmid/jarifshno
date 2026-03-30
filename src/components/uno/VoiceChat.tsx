@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -109,12 +108,18 @@ export default function VoiceChat({ roomId, playerId }: VoiceChatProps) {
 
   const joinVoice = async () => {
     try {
+      // Explicitly request microphone permissions
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       localStream.current = stream;
       setIsJoined(true);
       toast({ title: "Comms Active", description: "Strategic voice channel established." });
     } catch (err) {
-      toast({ variant: "destructive", title: "Mic Access Denied", description: "Enable microphone permissions to speak." });
+      console.error("Microphone access error:", err);
+      toast({ 
+        variant: "destructive", 
+        title: "Mic Access Denied", 
+        description: "Please enable microphone permissions in your browser settings to speak in the arena." 
+      });
     }
   };
 
