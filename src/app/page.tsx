@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -31,20 +32,7 @@ export default function Lobby() {
     setIsLoading(true);
     try {
       if (!auth.currentUser) {
-        try {
-          await signInAnonymously(auth);
-        } catch (authError: any) {
-          if (authError.code === 'auth/configuration-not-found') {
-            toast({
-              title: "Setup Required",
-              variant: "destructive",
-              description: "Please enable 'Anonymous' sign-in in your Firebase Console (Build > Authentication > Sign-in method)."
-            });
-            setIsLoading(false);
-            return;
-          }
-          throw authError;
-        }
+        await signInAnonymously(auth);
       }
       localStorage.setItem('uno_username', username);
       setStep('action');
@@ -53,7 +41,7 @@ export default function Lobby() {
       toast({ 
         title: "Arena Connection Error", 
         variant: "destructive", 
-        description: e.message || "Could not connect to the arena servers." 
+        description: "Could not connect to the arena servers." 
       });
     } finally {
       setIsLoading(false);
@@ -61,11 +49,7 @@ export default function Lobby() {
   };
 
   const handleCreateRoom = async () => {
-    if (!db) {
-      toast({ title: "Connecting...", description: "Please wait for the server connection." });
-      return;
-    }
-    
+    if (!db) return;
     setIsLoading(true);
     const code = generateRoomCode();
     
@@ -78,10 +62,9 @@ export default function Lobby() {
     try {
       const roomRef = doc(db, 'rooms', code);
       await setDoc(roomRef, getInitialGameState(code, myId));
-      router.push(`/game/${code}`);
+      router.push(`/game?roomId=${code}`);
     } catch (e: any) {
-      console.error("Create Room Error:", e);
-      toast({ title: "Error", variant: "destructive", description: e.message || "Could not create room." });
+      toast({ title: "Error", variant: "destructive", description: "Could not create room." });
       setIsLoading(false);
     }
   };
@@ -93,13 +76,12 @@ export default function Lobby() {
       const roomRef = doc(db, 'rooms', roomCode.toUpperCase());
       const snap = await getDoc(roomRef);
       if (snap.exists()) {
-        router.push(`/game/${roomCode.toUpperCase()}`);
+        router.push(`/game?roomId=${roomCode.toUpperCase()}`);
       } else {
         toast({ title: "Room Not Found", variant: "destructive", description: "This room code doesn't exist." });
         setIsLoading(false);
       }
     } catch (e: any) {
-      console.error("Join Room Error:", e);
       toast({ title: "Error", variant: "destructive", description: "Could not join room." });
       setIsLoading(false);
     }
