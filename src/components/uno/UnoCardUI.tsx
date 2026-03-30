@@ -54,14 +54,14 @@ const UnoCardUI: React.FC<UnoCardUIProps> = ({ card, onClick, isPlayable, classN
       whileTap={isPlayable ? { scale: 0.95 } : {}}
       onClick={isPlayable ? onClick : undefined}
       className={cn(
-        "relative w-16 h-24 md:w-28 md:h-40 rounded-xl border-2 border-white/30 card-plastic cursor-pointer select-none transition-all shrink-0 shadow-xl",
+        "relative w-16 h-24 md:w-28 md:h-40 rounded-xl border-2 card-plastic cursor-pointer select-none transition-all shrink-0 shadow-xl",
         colorMap[card.color],
-        !isPlayable && "grayscale-[0.4] opacity-80 scale-95",
+        isPlayable ? "border-primary ring-4 ring-primary/40 shadow-[0_0_20px_rgba(211,76,219,0.5)] z-10" : "border-white/30 grayscale-[0.4] opacity-70 scale-95",
         className
       )}
-      initial={{ opacity: 0, y: 50 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      transition={{ duration: 0.1, ease: "easeOut" }}
     >
       <div className="absolute inset-1.5 md:inset-3 border-2 border-white/10 rounded-lg flex flex-col items-center justify-center overflow-hidden bg-white/5 backdrop-blur-[2px]">
         <span className="text-white text-xl md:text-5xl font-black font-headline drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] tracking-tighter">
@@ -81,6 +81,14 @@ const UnoCardUI: React.FC<UnoCardUIProps> = ({ card, onClick, isPlayable, classN
       <div className="absolute bottom-1 right-1.5 md:bottom-2 md:right-3 text-[10px] md:text-lg font-black text-white/80 rotate-180">
         {displayValue(card.value)}
       </div>
+
+      {isPlayable && (
+        <motion.div 
+          className="absolute inset-0 rounded-xl border-2 border-white/50 pointer-events-none"
+          animate={{ opacity: [0.2, 0.6, 0.2] }}
+          transition={{ duration: 1, repeat: Infinity }}
+        />
+      )}
     </motion.div>
   );
 };

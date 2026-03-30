@@ -36,12 +36,10 @@
     background-image: radial-gradient(circle at 50% 50%, #1a161e 0%, #0d0b0f 100%);
     overflow: hidden;
     touch-action: manipulation;
-    /* Safe Area Support for Mobile Notches */
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
-    /* Prevent pull-to-refresh on mobile */
     overscroll-behavior-y: none;
   }
 }
@@ -107,3 +105,14 @@
 .bg-blue-500 { background-color: #3b82f6; }
 .bg-green-500 { background-color: #22c55e; }
 .bg-yellow-400 { background-color: #facc15; }
+
+/* Custom Playable Glow Animation */
+@keyframes playable-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(211, 76, 219, 0.4); }
+  70% { box-shadow: 0 0 0 15px rgba(211, 76, 219, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(211, 76, 219, 0); }
+}
+
+.playable-card {
+  animation: playable-pulse 2s infinite;
+}
