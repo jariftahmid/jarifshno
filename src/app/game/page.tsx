@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowLeft, Info, PlayCircle, MessageCircle, Clock, LogOut, Users } from 'lucide-react';
+import { Sparkles, ArrowLeft, Info, PlayCircle, MessageCircle, Clock, LogOut, Users, Sparkle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { UnoCard, CardColor, GameState, canPlayCard, createDeck, shuffle } from '@/lib/uno-engine';
@@ -326,6 +326,7 @@ function GameArenaContent() {
         </div>
 
         <div className="flex-1 relative flex flex-col items-center justify-center">
+          {/* Opponents Section */}
           <div className="absolute top-16 left-0 right-0 flex justify-center gap-12 px-8 overflow-x-auto no-scrollbar">
             {gameState.players.filter(p => p.id !== playerId).map((p, i) => (
               <div key={p.id} className="flex flex-col items-center min-w-[100px]">
@@ -343,6 +344,7 @@ function GameArenaContent() {
             ))}
           </div>
 
+          {/* Central Arena */}
           <div className="flex items-center gap-16 pile-3d">
             <motion.div 
               whileTap={{ scale: 0.8 }} 
@@ -365,6 +367,7 @@ function GameArenaContent() {
                   </motion.div>
                 ))}
               </AnimatePresence>
+              {/* Color Indicator Aura */}
               <div className={cn(
                 "absolute -top-12 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 border-white/20 transition-colors",
                 `bg-${gameState.currentColor}-500`
@@ -372,6 +375,7 @@ function GameArenaContent() {
             </div>
           </div>
 
+          {/* Activity Feed */}
           {gameState.lastAction && (
             <motion.div 
               key={gameState.lastAction}
@@ -384,6 +388,7 @@ function GameArenaContent() {
           )}
         </div>
 
+        {/* Player Hand Section */}
         <div className="h-48 glass border-t border-white/20 flex items-center justify-center p-6 overflow-x-auto no-scrollbar relative z-10">
            <div className="flex -space-x-10 md:-space-x-14 max-w-full px-12">
              {localPlayer?.hand.map((c, i) => (
@@ -398,6 +403,7 @@ function GameArenaContent() {
            </div>
         </div>
 
+        {/* UNO Shout Button */}
         <UnoButton 
           show={localPlayer?.hand.length === 1 && !localPlayer.hasShoutedUno} 
           onClick={async () => {
@@ -408,6 +414,7 @@ function GameArenaContent() {
         />
       </div>
 
+      {/* Chat Sidebar Overlay */}
       <AnimatePresence>
         {isChatOpen && (
           <motion.div 
@@ -430,6 +437,7 @@ function GameArenaContent() {
         }} 
       />
 
+      {/* Win State Overlay */}
       {gameState.status === 'ended' && (
         <motion.div 
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}

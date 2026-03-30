@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -14,7 +15,6 @@ interface VoiceChatProps {
 export default function VoiceChat({ roomId, playerId }: VoiceChatProps) {
   const [isJoined, setIsJoined] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [activeSpeakers, setActiveSpeakers] = useState<string[]>([]);
   const localStream = useRef<MediaStream | null>(null);
   const peers = useRef<{ [key: string]: RTCPeerConnection }>({});
   const audioElements = useRef<{ [key: string]: HTMLAudioElement }>({});

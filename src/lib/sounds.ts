@@ -1,3 +1,4 @@
+
 /**
  * @fileOverview Synthesized sound effects for the Uno game using Web Audio API.
  * This avoids the need for external MP3 files and works offline.
@@ -52,6 +53,7 @@ export const playSound = (type: 'play' | 'draw' | 'uno' | 'turn' | 'win') => {
       osc.stop(now + 0.05);
       break;
     case 'win':
+      // Fanfare sequence
       [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
         const o = ctx.createOscillator();
         const g = ctx.createGain();
