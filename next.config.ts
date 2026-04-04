@@ -1,7 +1,9 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // 1. Remove or comment out the line below
+  // output: 'export', 
+  
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -9,7 +11,9 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    unoptimized: true,
+    // 2. You can usually remove unoptimized: true if staying on Vercel
+    // but it's fine to keep if you prefer it.
+    unoptimized: true, 
     remotePatterns: [
       {
         protocol: 'https',
