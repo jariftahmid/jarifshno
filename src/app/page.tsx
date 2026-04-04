@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -24,7 +23,7 @@ export default function Dashboard() {
   const [roomCode, setRoomCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Global Active Players Counter - Only query if user is authenticated to respect security rules
+  // Global Active Players Counter
   const activeRoomsQuery = useMemoFirebase(() => 
     (db && user) ? query(collection(db, 'gameRooms'), where('status', '==', 'playing')) : null, 
     [db, user]
@@ -37,6 +36,7 @@ export default function Dashboard() {
       const userRef = doc(db, 'userProfiles', user.uid);
       getDoc(userRef).then(snap => {
         if (!snap.exists()) {
+          // Initialize profile
           setDoc(userRef, {
             id: user.uid,
             username: user.displayName || `ArenaPlayer-${user.uid.substring(0, 4)}`,
@@ -47,6 +47,7 @@ export default function Dashboard() {
             status: 'online',
             profileImageUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`
           });
+          // Initialize stats
           setDoc(doc(db, `userProfiles/${user.uid}/playerStats/default`), {
             id: 'default',
             userId: user.uid,
@@ -71,10 +72,18 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      toast({ title: "Welcome back!", description: "Synchronized with Google account." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Login Failed", description: "Could not authenticate with Google." });
+      // Using popup for immediate feedback, ensured auth instance is passed correctly
+      const result = await signInWithPopup(auth, provider);
+      if (result.user) {
+        toast({ title: "Welcome back!", description: `Logged in as ${result.user.displayName}` });
+      }
+    } catch (e: any) {
+      console.error("Google Auth Error:", e);
+      // Fallback or detailed error message
+      const errorMsg = e.code === 'auth/popup-blocked' 
+        ? "Popup was blocked by your browser. Please allow popups for this site."
+        : "Could not authenticate with Google. Please try again.";
+      toast({ variant: "destructive", title: "Login Failed", description: errorMsg });
     } finally {
       setIsLoading(false);
     }

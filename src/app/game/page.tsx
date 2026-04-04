@@ -1,7 +1,6 @@
-
 "use client"
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,8 +15,8 @@ import VoiceChat from '@/components/uno/VoiceChat';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useFirestore, useDoc, useAuth, useUser, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
+import { useFirestore, useDoc, useAuth, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, updateDoc, arrayUnion, increment, collection, query, orderBy, limit } from 'firebase/firestore';
 import { playSound } from '@/lib/sounds';
 import { getStrategicHint } from '@/ai/flows/ai-strategic-hint-tool';
 
@@ -28,7 +27,6 @@ function GameArenaContent() {
   const db = useFirestore();
   const { user } = useUser();
   
-  // Ensure we only create the doc reference once authenticated and roomId is present
   const roomRef = useMemoFirebase(() => (db && roomId && user ? doc(db, 'gameRooms', roomId) : null), [db, roomId, user]);
   const { data: gameState, loading: docLoading } = useDoc<GameState>(roomRef);
 
@@ -38,6 +36,32 @@ function GameArenaContent() {
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const [aiHint, setAiHint] = useState<{ card: UnoCard; reason: string } | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // Unread message tracking
+  const lastMessageCount = useRef(0);
+  const messagesRef = useMemoFirebase(() => 
+    db && roomId ? collection(db, 'gameRooms', roomId, 'messages') : null, 
+    [db, roomId]
+  );
+  const messagesQuery = useMemoFirebase(() => 
+    messagesRef ? query(messagesRef, orderBy('timestamp', 'asc'), limit(50)) : null,
+    [messagesRef]
+  );
+  const { data: messages } = useCollection(messagesQuery);
+
+  useEffect(() => {
+    if (!isChatOpen && messages && messages.length > lastMessageCount.current) {
+      // Check if latest message is from someone else
+      const latest = messages[messages.length - 1];
+      const localPlayer = gameState?.players.find(p => p.id === user?.uid);
+      if (latest.user !== (localPlayer?.name || 'Player')) {
+        setHasUnreadMessages(true);
+      }
+    }
+    if (messages) {
+      lastMessageCount.current = messages.length;
+    }
+  }, [messages, isChatOpen, gameState?.players, user?.uid]);
 
   useEffect(() => {
     if (!roomRef || !gameState || !user || !db) return;

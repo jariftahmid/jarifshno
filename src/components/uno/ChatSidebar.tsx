@@ -58,7 +58,12 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ roomId, userName, onClose }) 
           <MessageCircle className="text-primary w-5 h-5" />
           <h2 className="text-xl font-headline font-bold text-white">Arena Chat</h2>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="text-white/50 hover:text-white md:hidden">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={onClose} 
+          className="text-white/50 hover:text-white hover:bg-white/10"
+        >
           <X className="w-6 h-6" />
         </Button>
       </div>
