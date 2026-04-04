@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, Suspense, useRef } from 'react';
@@ -359,7 +360,7 @@ function GameArenaContent() {
               className="text-white relative hover:bg-white/10 h-8 w-8"
             >
               <MessageCircle className="w-5 h-5" />
-              {hasUnreadMessages && <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />}
+              {hasUnreadMessages && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full border-2 border-white shadow-lg animate-bounce" />}
             </Button>
          </div>
       </div>
@@ -418,7 +419,7 @@ function GameArenaContent() {
       </div>
 
       <div className="h-40 glass border-t border-white/20 flex items-center justify-center p-3 overflow-x-auto no-scrollbar relative z-10">
-         <div className="flex -space-x-8 max-w-full px-8">
+         <div className="flex -space-x-12 md:-space-x-16 max-w-full px-8 pb-4">
            {localPlayer?.hand.map((c, i) => (
              <UnoCardUI 
               key={c.id} 

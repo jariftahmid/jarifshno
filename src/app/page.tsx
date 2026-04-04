@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -69,21 +70,40 @@ export default function Dashboard() {
   }, [user, isUserLoading, db]);
 
   const handleGoogleLogin = async () => {
+    if (isLoading) return;
     setIsLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      // Using popup for immediate feedback, ensured auth instance is passed correctly
+      // Ensure specific scopes for profile data
+      provider.addScope('profile');
+      provider.addScope('email');
+      
       const result = await signInWithPopup(auth, provider);
       if (result.user) {
         toast({ title: "Welcome back!", description: `Logged in as ${result.user.displayName}` });
       }
     } catch (e: any) {
       console.error("Google Auth Error:", e);
-      // Fallback or detailed error message
-      const errorMsg = e.code === 'auth/popup-blocked' 
-        ? "Popup was blocked by your browser. Please allow popups for this site."
-        : "Could not authenticate with Google. Please try again.";
-      toast({ variant: "destructive", title: "Login Failed", description: errorMsg });
+      let errorMsg = "Could not authenticate with Google.";
+      
+      // Handle specific Firebase Auth errors for better user guidance
+      if (e.code === 'auth/popup-blocked') {
+        errorMsg = "Popup was blocked. Please allow popups for this site in your browser settings.";
+      } else if (e.code === 'auth/operation-not-allowed') {
+        errorMsg = "Google login is not enabled in the Firebase Console. Please contact the administrator.";
+      } else if (e.code === 'auth/unauthorized-domain') {
+        errorMsg = "This domain is not authorized for Firebase Authentication.";
+      } else if (e.code === 'auth/cancelled-popup-request' || e.code === 'auth/popup-closed-by-user') {
+        errorMsg = "Login was cancelled.";
+      } else if (e.message) {
+        errorMsg = e.message;
+      }
+      
+      toast({ 
+        variant: "destructive", 
+        title: "Login Failed", 
+        description: errorMsg 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -142,11 +162,11 @@ export default function Dashboard() {
             <p className="text-white/40 font-body text-sm uppercase tracking-widest">Elite Multiplayer Combat</p>
           </div>
           <div className="space-y-4">
-            <Button onClick={handleGoogleLogin} disabled={isLoading} className="w-full h-14 bg-white text-black hover:bg-white/90 font-headline font-bold text-lg rounded-2xl">
+            <Button onClick={handleGoogleLogin} disabled={isLoading} className="w-full h-14 bg-white text-black hover:bg-white/90 font-headline font-bold text-lg rounded-2xl transition-all active:scale-95">
               <img src="https://www.google.com/favicon.ico" className="w-5 h-5 mr-3" alt="Google" />
-              Sign in with Google
+              {isLoading ? "Connecting..." : "Sign in with Google"}
             </Button>
-            <Button onClick={handleGuestLogin} disabled={isLoading} variant="outline" className="w-full h-14 border-white/20 text-white font-headline font-bold text-lg rounded-2xl">
+            <Button onClick={handleGuestLogin} disabled={isLoading} variant="outline" className="w-full h-14 border-white/20 text-white font-headline font-bold text-lg rounded-2xl transition-all active:scale-95">
               Play as Guest
             </Button>
           </div>
