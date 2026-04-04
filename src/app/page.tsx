@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react';
@@ -23,10 +24,10 @@ export default function Dashboard() {
   const [roomCode, setRoomCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Global Active Players Counter - Correctly memoized to avoid the runtime error
+  // Global Active Players Counter - Only query if user is authenticated to respect security rules
   const activeRoomsQuery = useMemoFirebase(() => 
-    db ? query(collection(db, 'gameRooms'), where('status', '==', 'playing')) : null, 
-    [db]
+    (db && user) ? query(collection(db, 'gameRooms'), where('status', '==', 'playing')) : null, 
+    [db, user]
   );
   const { data: activeRooms } = useCollection(activeRoomsQuery);
   const totalActivePlayers = activeRooms?.reduce((acc, room) => acc + (room.playerIds?.length || 0), 0) || 0;

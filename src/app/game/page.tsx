@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, Suspense } from 'react';
@@ -27,7 +28,8 @@ function GameArenaContent() {
   const db = useFirestore();
   const { user } = useUser();
   
-  const roomRef = useMemoFirebase(() => (db && roomId ? doc(db, 'gameRooms', roomId) : null), [db, roomId]);
+  // Ensure we only create the doc reference once authenticated and roomId is present
+  const roomRef = useMemoFirebase(() => (db && roomId && user ? doc(db, 'gameRooms', roomId) : null), [db, roomId, user]);
   const { data: gameState, loading: docLoading } = useDoc<GameState>(roomRef);
 
   const [showColorPicker, setShowColorPicker] = useState(false);
