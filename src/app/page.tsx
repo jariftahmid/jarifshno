@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Play, Plus, Users, User, LogOut, Search, Trophy, Settings } from 'lucide-react';
+import { Play, Plus, LogOut, Trophy, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -23,7 +23,7 @@ export default function Dashboard() {
   const [roomCode, setRoomCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Global Active Players Counter - Uses useMemoFirebase to stabilize the query
+  // Global Active Players Counter - Correctly memoized to avoid the runtime error
   const activeRoomsQuery = useMemoFirebase(() => 
     db ? query(collection(db, 'gameRooms'), where('status', '==', 'playing')) : null, 
     [db]
@@ -33,7 +33,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (user && !isUserLoading && db) {
-      // Sync user profile to Firestore
       const userRef = doc(db, 'userProfiles', user.uid);
       getDoc(userRef).then(snap => {
         if (!snap.exists()) {
@@ -47,7 +46,6 @@ export default function Dashboard() {
             status: 'online',
             profileImageUrl: user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`
           });
-          // Initialize stats
           setDoc(doc(db, `userProfiles/${user.uid}/playerStats/default`), {
             id: 'default',
             userId: user.uid,
@@ -142,7 +140,6 @@ export default function Dashboard() {
               Play as Guest
             </Button>
           </div>
-          <p className="text-white/20 text-[10px] uppercase font-bold tracking-tighter">By entering you agree to our Terms of Combat</p>
         </motion.div>
       </main>
     );
@@ -222,18 +219,9 @@ export default function Dashboard() {
           <div className="glass p-6 rounded-3xl border border-white/10 space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-xs font-headline font-bold text-white/50 uppercase tracking-widest">Arena Social</h3>
-              <Button variant="ghost" size="sm" onClick={() => router.push('/friends')} className="text-[10px] text-primary font-black uppercase">Search Players</Button>
             </div>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                  <span className="text-xs font-bold text-white/80">Friends Online</span>
-                </div>
-                <span className="text-xs font-black text-primary">--</span>
-              </div>
-              <p className="text-[10px] text-white/30 text-center italic">Connect with friends to see their status.</p>
+            <div className="space-y-4 text-center">
+              <p className="text-[10px] text-white/30 italic">Connect with friends to see their status.</p>
             </div>
           </div>
 
