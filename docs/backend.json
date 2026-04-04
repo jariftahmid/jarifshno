@@ -1,82 +1,355 @@
-
 {
   "entities": {
-    "UnoCard": {
-      "title": "UnoCard",
-      "description": "Represents a single Uno card.",
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
       "type": "object",
+      "description": "Represents a user's profile, including authentication linkage, display name, and online status. This entity is central to user identification and social features.",
       "properties": {
-        "id": { "type": "string" },
-        "color": { "type": "string", "enum": ["red", "blue", "green", "yellow", "wild"] },
-        "value": { "type": "string", "enum": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "skip", "reverse", "draw_two", "wild", "wild_draw_four"] }
-      },
-      "required": ["id", "color", "value"]
-    },
-    "Player": {
-      "title": "Player",
-      "description": "Represents a player in the game.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "hand": {
-          "type": "array",
-          "items": { "$ref": "#/backend/entities/UnoCard" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "username": {
+          "type": "string",
+          "description": "The chosen display name for the user. Must be unique across all non-guest profiles and serves as their primary identifier for social interactions and search."
+        },
+        "googleId": {
+          "type": "string",
+          "description": "Unique identifier from Google OAuth, linking the user to their Google account. This field is optional for guest accounts, allowing them to be linked later."
+        },
+        "isGuest": {
+          "type": "boolean",
+          "description": "A boolean flag indicating if the user is currently playing as a temporary guest account. False for permanent, authenticated users."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user profile was initially created.",
+          "format": "date-time"
+        },
+        "lastOnline": {
+          "type": "string",
+          "description": "Timestamp of the user's last known online activity, used to determine their real-time presence status.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Current online status of the user (e.g., 'online', 'offline', 'in-game'). This is used for presence features like friend lists."
+        },
+        "profileImageUrl": {
+          "type": "string",
+          "description": "URL to the user's avatar or profile picture, if provided.",
+          "format": "uri"
         }
       },
-      "required": ["id", "name", "hand"]
+      "required": [
+        "id",
+        "username",
+        "isGuest",
+        "createdAt",
+        "lastOnline",
+        "status"
+      ]
     },
-    "GameState": {
-      "title": "GameState",
-      "description": "The overall state of a game room.",
+    "PlayerStats": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlayerStats",
       "type": "object",
+      "description": "Stores comprehensive game-specific statistics for a user, accumulated across all games played, providing insights into their performance and activity.",
       "properties": {
-        "roomId": { "type": "string" },
-        "players": {
-          "type": "array",
-          "items": { "$ref": "#/backend/entities/Player" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PlayerStats entity."
         },
-        "discardPile": {
-          "type": "array",
-          "items": { "$ref": "#/backend/entities/UnoCard" }
+        "userId": {
+          "type": "string",
+          "description": "Reference to the UserProfile this statistics record belongs to. (Relationship: UserProfile 1:1 PlayerStats)"
         },
-        "drawPile": {
-          "type": "array",
-          "items": { "$ref": "#/backend/entities/UnoCard" }
+        "totalMatchesPlayed": {
+          "type": "number",
+          "description": "Total number of Uno matches played by the user, regardless of match type or outcome."
         },
-        "currentPlayerIndex": { "type": "number" },
-        "currentColor": { "type": "string" },
-        "direction": { "type": "number", "enum": [1, -1] },
-        "status": { "type": "string", "enum": ["lobby", "playing", "ended"] },
-        "winner": { "type": "string" },
-        "lastAction": { "type": "string" }
+        "randomMatchesPlayed": {
+          "type": "number",
+          "description": "Number of games played through the random matchmaking lobby."
+        },
+        "friendMatchesPlayed": {
+          "type": "number",
+          "description": "Number of games played specifically with friends (private friend matches)."
+        },
+        "winPoints": {
+          "type": "number",
+          "description": "Total win points accumulated based on standard Uno scoring rules across all winning games."
+        },
+        "totalPoints": {
+          "type": "number",
+          "description": "Total points accumulated across all games played, including points from losing games."
+        },
+        "totalPlayTimeSeconds": {
+          "type": "number",
+          "description": "Total cumulative time the user has spent actively playing games, measured in seconds."
+        }
       },
-      "required": ["roomId", "players", "discardPile", "drawPile", "currentPlayerIndex", "currentColor", "direction", "status"]
+      "required": [
+        "id",
+        "userId",
+        "totalMatchesPlayed",
+        "randomMatchesPlayed",
+        "friendMatchesPlayed",
+        "winPoints",
+        "totalPoints",
+        "totalPlayTimeSeconds"
+      ]
     },
-    "ChatMessage": {
-      "title": "ChatMessage",
-      "description": "A message in the room chat.",
+    "Friendship": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Friendship",
       "type": "object",
+      "description": "Represents a friendship or a pending friend request relationship between two UserProfiles, facilitating social connections within the app.",
       "properties": {
-        "id": { "type": "string" },
-        "user": { "type": "string" },
-        "text": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Friendship entity."
+        },
+        "requesterId": {
+          "type": "string",
+          "description": "Reference to the UserProfile who initiated the friend request. (Relationship: UserProfile 1:N Friendship)"
+        },
+        "recipientId": {
+          "type": "string",
+          "description": "Reference to the UserProfile who is the target of the friend request. (Relationship: UserProfile 1:N Friendship)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status of the friend request (e.g., 'pending', 'accepted', 'declined')."
+        },
+        "requestedAt": {
+          "type": "string",
+          "description": "Timestamp when the friend request was sent.",
+          "format": "date-time"
+        },
+        "respondedAt": {
+          "type": "string",
+          "description": "Timestamp when the friend request was accepted or declined. This field is null if the request is still pending.",
+          "format": "date-time"
+        }
       },
-      "required": ["id", "user", "text", "timestamp"]
+      "required": [
+        "id",
+        "requesterId",
+        "recipientId",
+        "status",
+        "requestedAt"
+      ]
+    },
+    "GameRoom": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "GameRoom",
+      "type": "object",
+      "description": "Manages the state of an active game room, which can serve as either a private room created by a user or a lobby for random matchmaking.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the GameRoom entity."
+        },
+        "roomCode": {
+          "type": "string",
+          "description": "A 4-letter alphanumeric code used to identify and join private game rooms. This is optional and typically null for random match rooms."
+        },
+        "roomType": {
+          "type": "string",
+          "description": "Specifies the type of the game room (e.g., 'private', 'random_match')."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status of the room (e.g., 'waiting_for_players', 'in_progress', 'finished', 'closed')."
+        },
+        "hostId": {
+          "type": "string",
+          "description": "Reference to the UserProfile who created and manages a private room. This is typically null for random matchmaking rooms. (Relationship: UserProfile 1:N GameRoom)"
+        },
+        "playerIds": {
+          "type": "array",
+          "description": "An array of references to UserProfiles currently present in this room or lobby. (Relationship: UserProfile N:N GameRoom)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "maxPlayers": {
+          "type": "number",
+          "description": "The maximum number of players allowed in this specific game room, ranging from 2 to 10."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the game room was initially created.",
+          "format": "date-time"
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "Timestamp when the game within this room officially transitioned from waiting to in-progress. Null if the game has not started yet.",
+          "format": "date-time"
+        },
+        "countdownEndsAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the random matchmaking lobby countdown is set to end, triggering game start if enough players are present. Null for private rooms.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "roomType",
+        "status",
+        "playerIds",
+        "maxPlayers",
+        "createdAt"
+      ]
+    },
+    "GameSession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "GameSession",
+      "type": "object",
+      "description": "Records comprehensive details of a single completed or ongoing game instance, providing data for match history and post-game analysis.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the GameSession entity."
+        },
+        "gameRoomId": {
+          "type": "string",
+          "description": "Reference to the GameRoom where this session took place. (Relationship: GameRoom 1:N GameSession)"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Timestamp indicating when the game session officially began.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "Timestamp indicating when the game session officially concluded. Null if the game is still in progress.",
+          "format": "date-time"
+        },
+        "playerIds": {
+          "type": "array",
+          "description": "An array of references to UserProfiles who participated in this specific game session. (Relationship: UserProfile N:N GameSession)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "winningPlayerId": {
+          "type": "string",
+          "description": "Reference to the UserProfile who was declared the winner of this game session. Null if the game is ongoing or ended in a draw/tie (if applicable). (Relationship: UserProfile 1:N GameSession)"
+        },
+        "isRanked": {
+          "type": "boolean",
+          "description": "A boolean flag indicating if this game session was part of a ranked matchmaking system, influencing point calculations."
+        },
+        "matchType": {
+          "type": "string",
+          "description": "Categorization of the match type (e.g., 'random_match', 'friend_match', 'private_match'), derived from the GameRoom type."
+        }
+      },
+      "required": [
+        "id",
+        "gameRoomId",
+        "startTime",
+        "playerIds",
+        "matchType"
+      ]
     }
   },
   "auth": {
-    "providers": ["anonymous"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
-    "/rooms/{roomId}": {
-      "schema": "GameState",
-      "description": "Stores the current state of a specific game room."
-    },
-    "/rooms/{roomId}/messages/{messageId}": {
-      "schema": "ChatMessage",
-      "description": "Stores chat messages for a specific room."
-    }
+    "structure": [
+      {
+        "path": "/userProfiles/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile information, including authentication linkage, display name, and real-time presence status. The `userId` in the path ensures direct ownership for security rules. Includes denormalized `googleId` and `isGuest` for authentication management.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication UID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/userProfiles/{userId}/playerStats/default",
+        "definition": {
+          "entityName": "PlayerStats",
+          "schema": {
+            "$ref": "#/backend/entities/PlayerStats"
+          },
+          "description": "Contains game-specific statistics for a user. This is a subcollection to maintain path-based ownership, with 'default' as a fixed ID for the 1:1 relationship. The `userId` in the path ensures direct ownership for security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication UID of the owner of these player statistics."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/userProfiles/{userId}/friendships/{friendshipId}",
+        "definition": {
+          "entityName": "Friendship",
+          "schema": {
+            "$ref": "#/backend/entities/Friendship"
+          },
+          "description": "Represents a friendship or pending request from the perspective of the `userId` in the path. This entity is denormalized; each user has a record of their outgoing requests and incoming requests. Includes denormalized `targetId` (the other user's ID), `isSender` (boolean indicating if `userId` initiated the request), and `status` for authorization independence and efficient querying.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication UID of the user whose friendship record this is."
+            },
+            {
+              "name": "friendshipId",
+              "description": "A unique identifier for this specific friendship entry within the user's subcollection."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/gameRooms/{roomId}",
+        "definition": {
+          "entityName": "GameRoom",
+          "schema": {
+            "$ref": "#/backend/entities/GameRoom"
+          },
+          "description": "Manages the state of an active game room, either a private room or a random matchmaking lobby. Includes denormalized `hostId` (for private rooms) and `playerIds` array for authorization independence, allowing security rules to check membership directly.",
+          "params": [
+            {
+              "name": "roomId",
+              "description": "The unique identifier for the game room."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/gameSessions/{sessionId}",
+        "definition": {
+          "entityName": "GameSession",
+          "schema": {
+            "$ref": "#/backend/entities/GameSession"
+          },
+          "description": "Records comprehensive details of a single completed or ongoing game instance for match history. Includes denormalized `playerIds` array for authorization independence, allowing participants to read their game sessions directly.",
+          "params": [
+            {
+              "name": "sessionId",
+              "description": "The unique identifier for the game session."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure for Web Uno Arena prioritizes Authorization Independence, Structural Segregation, and consistent Access Modeling to ensure security, scalability, and debuggability. All authorization logic relies on data present directly within the document being accessed or the `request.auth.uid` matching a path segment, completely eliminating the need for `get()` calls in security rules.\n\n**Authorization Independence via Denormalization:**\n*   **UserProfile & PlayerStats:** These entities are stored in `userProfiles/{userId}` and `userProfiles/{userId}/playerStats/default` respectively. The `userId` in the path directly ties ownership to `request.auth.uid`, making authorization rules straightforward without external lookups.\n*   **Friendship:** To achieve Authorization Independence and simplify friend list queries (QAPs), the `Friendship` entity is denormalized. Instead of a single collection, each user maintains their own `friendships` subcollection under `/userProfiles/{userId}/friendships/{friendshipId}`. When user A sends a request to user B, two distinct documents are created: one in A's `friendships` subcollection (where A is `isSender: true`) and one in B's `friendships` subcollection (where B is `isSender: false`). Both documents contain `targetId` (the other user's ID) and `status`. When the status changes (e.g., B accepts), both documents are updated atomically via a batch write. This means rules for `/userProfiles/{userId}/friendships/{friendshipId}` only need to verify `request.auth.uid == userId` and then use the `isSender` and `status` fields within `resource.data` to determine access rights.\n*   **GameRoom & GameSession:** For both game rooms and game sessions, the `playerIds` array is denormalized directly into the respective document. This allows security rules to check `request.auth.uid in resource.data.playerIds` for read access, again avoiding any `get()` calls. For private rooms, the `hostId` field similarly provides direct authorization context.\n\n**Support for Querying, Aggregation, and Permissions (QAPs):**\n*   **Player Profiles & Stats:** Reading a user's own profile or stats is a direct path lookup. Searching for users by `username` is supported by querying the `/userProfiles` collection (requiring an index on `username`).\n*   **Friend Lists:** A user's friend list (pending, accepted, declined) is retrieved by a simple `list` query on their personal `/userProfiles/{userId}/friendships` subcollection. The denormalized `targetId` and `status` within each document provide all necessary display and authorization context.\n*   **Match History:** A user's match history is obtained by querying the `gameSessions` collection where `playerIds` contains `request.auth.uid`. This requires a `collectionGroup` query or an index on `playerIds` for efficient retrieval.\n*   **Lobby & Room Matching:** Active matchmaking lobbies can be queried from `/gameRooms` based on `status: 'waiting_for_players'` and `roomType: 'random_match'`. Joining a specific room is a direct lookup. The `playerIds` array in `GameRoom` also facilitates efficient checking of who is in a room for security rules.\n*   **Total Active Players:** While the `GameRoom` structure allows for backend-side aggregation of active players (e.g., a Cloud Function reacting to room status changes updating a counter), direct querying for this global metric via a `list` would be inefficient. A separate aggregated counter (e.g., in Realtime DB or a dedicated Firestore document) is recommended for real-time display, updated by a backend service reacting to `GameRoom` status changes."
   }
 }

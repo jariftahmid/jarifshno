@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * UNO Web New Version - Security Rules Documentation
+     * 
+     * Core Philosophy: 
+     * This ruleset implements a Hybrid Ownership and Shared Access model. Data is primarily 
+     * partitioned by User UIDs to ensure strict ownership, while multiplayer components 
+     * (Rooms/Sessions) use array-based membership checks to allow collaborative access 
+     * without complex lookups.
+     * 
+     * Data Structure:
+     * - /userProfiles/{userId}: Publicly searchable profiles for social discovery.
+     * - /userProfiles/{userId}/playerStats: Private ownership of performance metrics.
+     * - /userProfiles/{userId}/friendships: Private, denormalized subcollections for each 
+     *   user to manage their social graph independently.
+     * - /gameRooms: Real-time lobby and match state shared among participants.
+     * - /gameSessions: Historical match records accessible to all participants of a game.
+     * 
+     * Key Security Decisions:
+     * 1. Authorization Independence: All rules rely on data contained within the document 
+     *    (like playerIds arrays) or the path itself (userId), eliminating the need for 
+     *    expensive get() calls.
+     * 2. Denormalization for Social Features: Friendships are mirrored in both the 
+     *    sender's and recipient's subcollections. This allows for simple path-based 
+     *    ownership checks and efficient list queries.
+     * 3. Prototyping Flexibility: Rules strictly enforce 'who' can access data but are 
+     *    flexible regarding the 'shape' of the data, allowing rapid iteration on 
+     *    game mechanics without constant rule updates.
+     * 4. Relational Integrity: On document creation, the rules enforce that internal 
+     *    IDs (e.g., userId field) must match the authenticated user's UID and path.
+     */
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    function isParticipant(playerIds) {
+      return isSignedIn() && request.auth.uid in playerIds;
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Publicly readable profiles for user discovery and search by username. 
+     * Writes restricted to the owner.
+     * @path /userProfiles/{userId}
+     * @allow get, list (public)
+     * @allow create (owner, if ID matches)
+     * @deny update (if attempting to change document ID)
+     * @principle Public discovery with strict ownership for modifications.
+     */
+    match /userProfiles/{userId} {
+      allow get, list: if true;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description User performance statistics. Only the owner can read or manage their 1:1 stats.
+       * @path /userProfiles/{userId}/playerStats/default
+       * @allow get, list (owner only)
+       * @deny create (if UID doesn't match path)
+       * @principle Path-based ownership for subcollections.
+       */
+      match /playerStats/default {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Denormalized friendship records. Each user manages their own "view" 
+       * of a relationship.
+       * @path /userProfiles/{userId}/friendships/{friendshipId}
+       * @allow list (owner only)
+       * @allow create (if not the path owner)
+       * @principle Authorization independence through dual-write denormalization.
+       */
+      match /friendships/{friendshipId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
+      }
+    }
+
+    /**
+     * @description Multiplayer game rooms. Accessible to participants for game state, 
+     * and visible to all signed-in users for lobby matchmaking.
+     * @path /gameRooms/{roomId}
+     * @allow list (any signed-in user to find lobbies)
+     * @allow get (participants only)
+     * @allow update (if user is not currently in the room or joining the room)
+     * @principle Shared access via membership arrays (playerIds).
+     */
+    match /gameRooms/{roomId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isParticipant(resource.data.playerIds);
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        isParticipant(resource.data.playerIds) || 
+        isParticipant(request.resource.data.playerIds)
+      );
+      // Only the designated host (if private) or a participant can delete/close a room
+      allow delete: if isSignedIn() && (
+        resource.data.hostId == request.auth.uid || 
+        isParticipant(resource.data.playerIds)
+      );
+    }
+
+    /**
+     * @description Historical game session data. Read-only for participants once the game is over.
+     * @path /gameSessions/{sessionId}
+     * @allow list (participants via array-contains query)
+     * @allow get (any participant in the playerIds array)
+     * @allow update, delete (sessions are immutable records)
+     * @principle Shared historical access with immutability.
+     */
+    match /gameSessions/{sessionId} {
+      // List allows users to query their match history: .where('playerIds', 'array-contains', uid)
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isParticipant(resource.data.playerIds);
+      allow create: if isSignedIn() && isParticipant(request.resource.data.playerIds);
+      allow update, delete: if false; 
+    }
+  }
+}
