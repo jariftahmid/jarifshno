@@ -1,13 +1,13 @@
-
 "use client"
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, MessageCircle, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
 
 interface ChatSidebarProps {
   roomId: string;
@@ -20,12 +20,12 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ roomId, userName, onClose }) 
   const scrollRef = useRef<HTMLDivElement>(null);
   const db = useFirestore();
 
-  const messagesRef = useMemo(() => 
-    db ? collection(db, 'rooms', roomId, 'messages') : null, 
+  const messagesRef = useMemoFirebase(() => 
+    db ? collection(db, 'gameRooms', roomId, 'messages') : null, 
     [db, roomId]
   );
   
-  const messagesQuery = useMemo(() => 
+  const messagesQuery = useMemoFirebase(() => 
     messagesRef ? query(messagesRef, orderBy('timestamp', 'asc'), limit(50)) : null,
     [messagesRef]
   );
@@ -42,17 +42,13 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ roomId, userName, onClose }) 
     if (!inputValue.trim() || !messagesRef) return;
     
     const text = inputValue;
-    setInputValue(''); // Clear quickly for UX
+    setInputValue('');
     
-    try {
-      await addDoc(messagesRef, {
-        user: userName,
-        text: text,
-        timestamp: serverTimestamp()
-      });
-    } catch (e) {
-      console.error("Chat error:", e);
-    }
+    addDoc(messagesRef, {
+      user: userName,
+      text: text,
+      timestamp: serverTimestamp()
+    });
   };
 
   return (
@@ -113,5 +109,4 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ roomId, userName, onClose }) 
   );
 };
 
-import { cn } from '@/lib/utils';
 export default ChatSidebar;

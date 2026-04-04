@@ -15,18 +15,23 @@ export interface Player {
 }
 
 export interface GameState {
+  id?: string;
   roomId: string;
   hostId: string;
   players: Player[];
+  playerIds: string[];
   discardPile: UnoCard[];
   drawPile: UnoCard[];
   currentPlayerIndex: number;
   currentColor: CardColor;
   direction: 1 | -1;
   status: 'lobby' | 'playing' | 'ended';
+  roomType: 'private' | 'random_match';
   winner?: string | null;
   lastAction?: string;
-  turnStartedAt?: number; // Timestamp for timer
+  turnStartedAt?: number;
+  createdAt: number;
+  countdownEndsAt?: number;
 }
 
 export const createDeck = (): UnoCard[] => {
@@ -35,10 +40,7 @@ export const createDeck = (): UnoCard[] => {
   const deck: UnoCard[] = [];
 
   colors.forEach((color) => {
-    // One '0' per color
     deck.push({ id: `${color}-0-${Math.random()}`, color, value: '0' });
-    
-    // Two of each 1-9 and actions
     ['1', '2', '3', '4', '5', '6', '7', '8', '9', ...actionValues].forEach((val) => {
       for (let i = 0; i < 2; i++) {
         deck.push({ 
@@ -50,7 +52,6 @@ export const createDeck = (): UnoCard[] => {
     });
   });
 
-  // Four of each Wild
   for (let i = 0; i < 4; i++) {
     deck.push({ id: `wild-${i}-${Math.random()}`, color: 'wild', value: 'wild' });
     deck.push({ id: `wild4-${i}-${Math.random()}`, color: 'wild', value: 'wild_draw_four' });
@@ -79,16 +80,35 @@ export const generateRoomCode = () => {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 };
 
-export const getInitialGameState = (roomId: string, hostId: string): GameState => {
+export const getInitialGameState = (roomId: string, hostId: string, type: 'private' | 'random_match' = 'private'): GameState => {
   return {
     roomId,
     hostId,
     players: [],
+    playerIds: [],
     discardPile: [],
     drawPile: [],
     currentPlayerIndex: 0,
     currentColor: 'red',
     direction: 1,
-    status: 'lobby'
+    status: 'lobby',
+    roomType: type,
+    createdAt: Date.now()
   };
+};
+
+export const calculateWinPoints = (opponentHands: UnoCard[][]): number => {
+  let points = 0;
+  opponentHands.forEach(hand => {
+    hand.forEach(card => {
+      if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(card.value)) {
+        points += parseInt(card.value);
+      } else if (['skip', 'reverse', 'draw_two'].includes(card.value)) {
+        points += 20;
+      } else if (['wild', 'wild_draw_four'].includes(card.value)) {
+        points += 50;
+      }
+    });
+  });
+  return points;
 };

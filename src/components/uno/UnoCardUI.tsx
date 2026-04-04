@@ -9,6 +9,7 @@ interface UnoCardUIProps {
   card: UnoCard;
   onClick?: () => void;
   isPlayable?: boolean;
+  isHighlighted?: boolean;
   className?: string;
   index?: number;
   isOpponent?: boolean;
@@ -22,7 +23,7 @@ const colorMap: Record<CardColor, string> = {
   wild: 'bg-zinc-800'
 };
 
-const UnoCardUI: React.FC<UnoCardUIProps> = ({ card, onClick, isPlayable, className, index = 0, isOpponent }) => {
+const UnoCardUI: React.FC<UnoCardUIProps> = ({ card, onClick, isPlayable, isHighlighted, className, index = 0, isOpponent }) => {
   const displayValue = (val: string) => {
     if (val === 'draw_two') return '+2';
     if (val === 'wild_draw_four') return '+4';
@@ -50,16 +51,17 @@ const UnoCardUI: React.FC<UnoCardUIProps> = ({ card, onClick, isPlayable, classN
   return (
     <motion.div
       layout
-      whileHover={isPlayable ? { y: -20, scale: 1.1, zIndex: 100 } : {}}
+      whileHover={isPlayable ? { y: -20, scale: 1.05, zIndex: 100 } : {}}
       whileTap={isPlayable ? { scale: 0.95 } : {}}
       onClick={isPlayable ? onClick : undefined}
       className={cn(
         "relative w-16 h-24 md:w-28 md:h-40 rounded-xl border-2 card-plastic cursor-pointer select-none transition-all shrink-0 shadow-xl",
         colorMap[card.color],
-        isPlayable ? "border-primary ring-4 ring-primary/40 shadow-[0_0_20px_rgba(211,76,219,0.5)] z-10" : "border-white/30 grayscale-[0.4] opacity-70 scale-95",
+        isPlayable ? "border-primary/60 ring-2 ring-primary/20 shadow-[0_0_15px_rgba(211,76,219,0.3)] z-10" : "border-white/30 grayscale-[0.4] opacity-70 scale-95",
+        isHighlighted && "ring-4 ring-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.6)] border-yellow-400",
         className
       )}
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.1, ease: "easeOut" }}
     >
@@ -84,9 +86,9 @@ const UnoCardUI: React.FC<UnoCardUIProps> = ({ card, onClick, isPlayable, classN
 
       {isPlayable && (
         <motion.div 
-          className="absolute inset-0 rounded-xl border-2 border-white/50 pointer-events-none"
-          animate={{ opacity: [0.2, 0.6, 0.2] }}
-          transition={{ duration: 1, repeat: Infinity }}
+          className="absolute inset-0 rounded-xl border-2 border-primary/40 pointer-events-none"
+          animate={{ opacity: [0.1, 0.4, 0.1] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
         />
       )}
     </motion.div>
