@@ -42,13 +42,14 @@
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
     overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
 .glass {
   background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -65,24 +66,13 @@
 }
 
 .card-plastic {
-  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.4);
   position: relative;
   overflow: hidden;
 }
 
-.card-plastic::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%);
-  pointer-events: none;
-}
-
 .arena-3d {
-  perspective: 1000px;
+  perspective: 1200px;
 }
 
 .pile-3d {
@@ -91,7 +81,7 @@
 }
 
 .golden-glow {
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.3);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.2);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -107,10 +97,9 @@
 .bg-green-500 { background-color: #22c55e; }
 .bg-yellow-400 { background-color: #facc15; }
 
-/* Custom Playable Glow Animation */
 @keyframes playable-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(211, 76, 219, 0.4); }
-  70% { box-shadow: 0 0 0 15px rgba(211, 76, 219, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(211, 76, 219, 0.3); }
+  70% { box-shadow: 0 0 0 10px rgba(211, 76, 219, 0); }
   100% { box-shadow: 0 0 0 0 rgba(211, 76, 219, 0); }
 }
 

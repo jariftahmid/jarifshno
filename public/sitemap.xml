@@ -1,21 +1,19 @@
+
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://web-uno-arena.vercel.app/</loc>
-    <lastmod>2024-05-20</lastmod>
-    <changefreq>daily</changefreq>
+    <loc>https://webuno-arena.vercel.app/</loc>
+    <lastmod>2024-03-24</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://web-uno-arena.vercel.app/profile</loc>
-    <lastmod>2024-05-20</lastmod>
-    <changefreq>weekly</changefreq>
+    <loc>https://webuno-arena.vercel.app/profile</loc>
+    <lastmod>2024-03-24</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://web-uno-arena.vercel.app/lobby</loc>
-    <lastmod>2024-05-20</lastmod>
-    <changefreq>always</changefreq>
+    <loc>https://webuno-arena.vercel.app/lobby</loc>
+    <lastmod>2024-03-24</lastmod>
     <priority>0.5</priority>
   </url>
 </urlset>

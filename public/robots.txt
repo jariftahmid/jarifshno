@@ -1,4 +1,4 @@
+
 User-agent: *
 Allow: /
-Disallow: /game/
-Sitemap: https://web-uno-arena.vercel.app/sitemap.xml
+Sitemap: https://webuno-arena.vercel.app/sitemap.xml

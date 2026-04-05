@@ -42,96 +42,83 @@ export default function ProfilePage() {
         profileImageUrl: editedAvatar || `https://picsum.photos/seed/${user.uid}/100/100`
       });
       setIsEditing(false);
-      toast({ title: "Profile Updated", description: "Your combat identity has been shifted." });
+      toast({ title: "Identity Updated", description: "Your combat persona has been recalibrated." });
     } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to update profile." });
+      toast({ variant: "destructive", title: "Update Failed", description: "Error syncing identity changes." });
     }
   };
 
   if (!user || !profile) return null;
 
   const statCards = [
-    { label: 'Win Points', value: stats?.winPoints || 0, icon: Trophy, color: 'text-yellow-500' },
-    { label: 'Total Matches', value: stats?.totalMatchesPlayed || 0, icon: Swords, color: 'text-primary' },
-    { label: 'Total Points', value: stats?.totalPoints || 0, icon: Target, color: 'text-accent' },
-    { label: 'Play Time', value: stats?.totalPlayTimeSeconds ? `${Math.floor(stats.totalPlayTimeSeconds / 60)}m` : '0m', icon: Clock, color: 'text-blue-500' },
+    { label: 'Rank Points', value: stats?.winPoints || 0, icon: Trophy, color: 'text-yellow-500' },
+    { label: 'Arena Matches', value: stats?.totalMatchesPlayed || 0, icon: Swords, color: 'text-primary' },
+    { label: 'Total XP', value: stats?.totalPoints || 0, icon: Target, color: 'text-accent' },
+    { label: 'Active Time', value: stats?.totalPlayTimeSeconds ? `${Math.floor(stats.totalPlayTimeSeconds / 60)}m` : '0m', icon: Clock, color: 'text-blue-500' },
   ];
 
   return (
     <main className="w-full h-screen mesh-gradient flex flex-col p-4 overflow-y-auto no-scrollbar">
-      <div className="max-w-4xl mx-auto w-full space-y-8 pb-12">
+      <div className="max-w-4xl mx-auto w-full space-y-6 pb-12">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="text-white">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="text-white h-10 w-10">
             <ArrowLeft className="w-6 h-6" />
           </Button>
-          <h1 className="text-2xl font-headline font-black text-white uppercase tracking-widest">Identity Center</h1>
+          <h1 className="text-xl font-headline font-black text-white uppercase tracking-widest">Profile Identity</h1>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          <div className="md:col-span-12 glass p-8 rounded-3xl border border-white/10 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
-            <div className="relative group">
-               <Avatar className="h-32 w-32 border-4 border-primary shadow-2xl">
+          <div className="md:col-span-12 glass p-6 rounded-3xl border border-white/10 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden">
+            <div className="relative group shrink-0">
+               <Avatar className="h-24 w-24 border-4 border-primary shadow-2xl">
                 <AvatarImage src={isEditing ? editedAvatar : profile.profileImageUrl} />
                 <AvatarFallback>{profile.username?.charAt(0)}</AvatarFallback>
               </Avatar>
               {isEditing && (
-                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera className="text-white w-6 h-6" />
+                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center pointer-events-none">
+                  <Camera className="text-white w-5 h-5 opacity-70" />
                 </div>
               )}
             </div>
             
-            <div className="flex-1 text-center md:text-left space-y-2">
+            <div className="flex-1 text-center md:text-left space-y-2 overflow-hidden w-full">
               <AnimatePresence mode="wait">
                 {isEditing ? (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] text-white/40 uppercase font-black">Username</label>
-                      <Input 
-                        value={editedUsername} 
-                        onChange={(e) => setEditedUsername(e.target.value)} 
-                        className="bg-white/5 border-white/10 text-white font-headline font-bold text-xl"
-                      />
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 w-full">
+                    <div className="space-y-1">
+                      <label className="text-[9px] text-white/40 uppercase font-black">Username</label>
+                      <Input value={editedUsername} onChange={(e) => setEditedUsername(e.target.value)} className="bg-white/5 border-white/10 text-white font-headline font-bold" />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] text-white/40 uppercase font-black">Avatar URL</label>
-                      <Input 
-                        value={editedAvatar} 
-                        onChange={(e) => setEditedAvatar(e.target.value)} 
-                        className="bg-white/5 border-white/10 text-white text-xs"
-                        placeholder="https://..."
-                      />
+                    <div className="space-y-1">
+                      <label className="text-[9px] text-white/40 uppercase font-black">Avatar URL</label>
+                      <Input value={editedAvatar} onChange={(e) => setEditedAvatar(e.target.value)} className="bg-white/5 border-white/10 text-white text-xs" />
                     </div>
                   </motion.div>
                 ) : (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <div className="flex flex-col md:flex-row items-center gap-3">
-                      <h2 className="text-4xl font-headline font-black text-white">@{profile.username}</h2>
-                      <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${profile.status === 'online' ? 'bg-green-500/20 text-green-500' : profile.status === 'in-game' ? 'bg-primary/20 text-primary' : 'bg-white/10 text-white/40'}`}>
+                    <div className="flex flex-col md:flex-row items-center gap-2">
+                      <h2 className="text-2xl font-headline font-black text-white truncate max-w-full">@{profile.username}</h2>
+                      <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${profile.status === 'online' ? 'bg-green-500/20 text-green-500' : 'bg-primary/20 text-primary'}`}>
                         {profile.status}
                       </div>
                     </div>
-                    <p className="text-white/40 font-mono text-xs flex items-center justify-center md:justify-start gap-2 mt-2">
-                      <Hash className="w-3 h-3" /> {profile.id.substring(0, 12)}...
+                    <p className="text-white/40 font-mono text-[9px] flex items-center justify-center md:justify-start gap-2 mt-1">
+                      <Hash className="w-3 h-3" /> {profile.id.substring(0, 16)}...
                     </p>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
             
-            <div className="flex flex-col gap-2 w-full md:w-auto">
+            <div className="flex gap-2 w-full md:w-auto">
               {isEditing ? (
-                <div className="flex gap-2">
-                  <Button onClick={handleSaveProfile} className="bg-primary hover:bg-primary/80 text-white flex-1 md:flex-none">
-                    <Check className="w-4 h-4 mr-2" /> SAVE
-                  </Button>
-                  <Button variant="ghost" onClick={() => setIsEditing(false)} className="text-white/50">
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
+                <>
+                  <Button onClick={handleSaveProfile} className="bg-primary text-white flex-1 md:flex-none h-10 px-6 rounded-xl text-xs font-black">SAVE</Button>
+                  <Button variant="ghost" onClick={() => setIsEditing(false)} className="text-white/50 h-10">CANCEL</Button>
+                </>
               ) : (
-                <Button variant="outline" onClick={handleStartEdit} className="border-white/10 text-white gap-2">
-                  <Edit2 className="w-4 h-4" /> EDIT DETAILS
+                <Button variant="outline" onClick={handleStartEdit} className="border-white/10 text-white gap-2 w-full h-10 px-6 rounded-xl text-xs font-black">
+                  <Edit2 className="w-3 h-3" /> EDIT DETAILS
                 </Button>
               )}
             </div>
@@ -139,38 +126,32 @@ export default function ProfilePage() {
 
           <div className="md:col-span-8 grid grid-cols-2 gap-4">
             {statCards.map((s, i) => (
-              <motion.div 
-                key={s.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="glass p-6 rounded-3xl border border-white/10 space-y-2"
-              >
-                <s.icon className={`w-6 h-6 ${s.color}`} />
-                <span className="block text-2xl font-headline font-black text-white">{s.value}</span>
-                <span className="text-[10px] text-white/40 uppercase font-bold tracking-widest">{s.label}</span>
+              <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="glass p-4 rounded-2xl border border-white/10 space-y-1">
+                <s.icon className={`w-5 h-5 ${s.color}`} />
+                <span className="block text-xl font-headline font-black text-white">{s.value}</span>
+                <span className="text-[9px] text-white/40 uppercase font-bold tracking-tighter">{s.label}</span>
               </motion.div>
             ))}
           </div>
 
           <div className="md:col-span-4 glass p-6 rounded-3xl border border-white/10 space-y-6">
-            <h3 className="text-xs font-headline font-bold text-white/50 uppercase tracking-widest">Combat History</h3>
+            <h3 className="text-[10px] font-headline font-bold text-white/50 uppercase tracking-widest">Season Breakdown</h3>
             <div className="space-y-4">
-              <div className="space-y-1">
-                <div className="flex justify-between text-[10px] font-bold">
-                  <span className="text-white/60">RANDOM BATTLES</span>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[9px] font-bold">
+                  <span className="text-white/60">RANDOM MATCHES</span>
                   <span className="text-primary">{stats?.randomMatchesPlayed || 0}</span>
                 </div>
-                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
                   <div className="h-full bg-primary" style={{ width: `${stats?.totalMatchesPlayed ? ((stats.randomMatchesPlayed / stats.totalMatchesPlayed) * 100) : 0}%` }} />
                 </div>
               </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-[10px] font-bold">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[9px] font-bold">
                   <span className="text-white/60">FRIEND DUELS</span>
                   <span className="text-accent">{stats?.friendMatchesPlayed || 0}</span>
                 </div>
-                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
                   <div className="h-full bg-accent" style={{ width: `${stats?.totalMatchesPlayed ? ((stats.friendMatchesPlayed / stats.totalMatchesPlayed) * 100) : 0}%` }} />
                 </div>
               </div>
